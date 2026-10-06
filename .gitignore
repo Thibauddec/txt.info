@@ -1,0 +1,7 @@
+# Wordt bij elke run opnieuw gemaakt door update.py
+site/data.json
+data.json
+# Lokale experimenten (retro-tv en artifact-versie)
+/index.html
+/teletekst.html
+__pycache__/

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Teletekst">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Elenet Teletekst</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
+<style>
+/* Eén scherm: teletekstpagina bovenaan (schaalt mee met de breedte), bediening onderaan. Bewust altijd zwart, zoals echte teletekst. */
+:root{
+ --bg:#000;--panel:#0c0c10;--key:#1d1d24;--fg:#fff;--dim:#8a8a99;
+ --t-red:#ff3b30;--t-green:#2f2;--t-yellow:#ff0;--t-blue:#3a6bff;--t-mag:#f3f;--t-cyan:#0ff;
+ --f-tt:"VT323","Courier New",monospace;--f-ui:Tahoma,Verdana,"Segoe UI",sans-serif;
+ color-scheme:dark;
+}
+html,body{height:100%;margin:0}
+:root{padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);overflow:hidden;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.app{height:100%;display:flex;flex-direction:column;max-width:640px;margin:0 auto}
+#scr{flex:1;min-height:0;display:flex;align-items:flex-start;justify-content:center;padding:12px 16px 6px;overflow:hidden}
+#pg{font-family:var(--f-tt);line-height:1;white-space:pre;font-variant-ligatures:none;font-feature-settings:"liga" 0;font-size:20px}
+.ln{height:1em}
+#pg [data-p],#pg a{cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+#pg [data-sub]{cursor:pointer}
+.tw{color:var(--fg)}.tr{color:var(--t-red)}.tg{color:var(--t-green)}.ty{color:var(--t-yellow)}.tb{color:var(--t-blue)}.tm{color:var(--t-mag)}.tc{color:var(--t-cyan)}
+.bg-b{background:#0018c8}.bg-r{background:#c00}.bg-g{background:#080}.bg-m{background:#909}.bg-c{background:#077}.bg-y{background:#880}
+.ctl{background:var(--panel);border-top:1px solid #222;padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));display:grid;gap:8px}
+.fast{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.fast button{height:44px;border:0;border-radius:10px;font:600 13px var(--f-ui);color:#000;cursor:pointer;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fast .r{background:var(--t-red)}.fast .g{background:var(--t-green)}.fast .y{background:var(--t-yellow)}.fast .c{background:var(--t-cyan)}
+.pad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.pad button{height:clamp(40px,7vh,54px);border:0;border-radius:10px;background:var(--key);color:var(--fg);font:400 26px var(--f-tt);cursor:pointer;box-shadow:inset 0 -3px 0 #0006}
+.pad button.s{font:600 13px var(--f-ui);color:var(--dim)}
+.pad button.s.on{color:var(--t-red)}
+button:active{filter:brightness(1.4);transform:translateY(1px)}
+button:focus-visible{outline:2px solid var(--t-yellow);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<div class="app">
+ <div id="scr" aria-live="polite"><div id="pg"></div></div>
+ <div class="ctl">
+  <div class="fast" id="fast">
+   <button class="r" id="f-red" data-f="red">Index</button><button class="g" id="f-green" data-f="green">België</button><button class="y" id="f-yellow" data-f="yellow">Sport</button><button class="c" id="f-blue" data-f="blue">Weer</button>
+  </div>
+  <div class="pad" id="pad">
+   <button id="k1" data-k="1">1</button><button id="k2" data-k="2">2</button><button id="k3" data-k="3">3</button><button id="k4" data-k="4">4</button><button id="k5" data-k="5">5</button>
+   <button id="k6" data-k="6">6</button><button id="k7" data-k="7">7</button><button id="k8" data-k="8">8</button><button id="k9" data-k="9">9</button><button id="k0" data-k="0">0</button>
+   <button id="kprev" class="s" data-k="prev" aria-label="Vorige pagina">◀ P−</button><button id="kidx" class="s" data-k="idx">100</button><button id="khold" class="s" data-k="hold">HOLD</button><button id="kdel" class="s" data-k="del" aria-label="Wissen">⌫</button><button id="knext" class="s" data-k="next" aria-label="Volgende pagina">P+ ▶</button>
+  </div>
+ </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const DG=['zo','ma','di','wo','do','vr','za'];
+const DAGEN=['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+const MAAND=['jan','feb','maa','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+const clock=(s=false,d=new Date())=>pad(d.getHours())+':'+pad(d.getMinutes())+(s?':'+pad(d.getSeconds()):'');
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+function rng(seed){return()=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const ROWS=22; // incl. kopregel
+
+/* ---------- Teletekst-opmaak ---------- */
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const C=(cls,s)=>`<span class="${cls}">${esc(s)}</span>`;
+const P=(cls,p,label=p)=>`<span class="${cls}" data-p="${p}">${esc(label)}</span>`;
+const bar=(cls,s,fg='tw')=>`<span class="${cls} ${fg}">${esc(' '+s.padEnd(39).slice(0,39))}</span>`;
+const lead=(label,p,cl='tc')=>C(cl,' '+label+' '+'.'.repeat(Math.max(1,34-label.length))+' ')+P('tw',p);
+function wrap(s,w=38){const out=[];let l='';String(s||'').split(' ').forEach(x=>{while(x.length>w){out.push(x.slice(0,w));x=x.slice(w)}if((l+' '+x).trim().length>w){out.push(l.trim());l=x}else l+=' '+x});if(l.trim())out.push(l.trim());return out}
+const BLOK={E:['███','█  ','██ ','█  ','███'],L:['█  ','█  ','█  ','█  ','███'],N:['█  █','██ █','█ ██','█  █','█  █'],T:['███',' █ ',' █ ',' █ ',' █ ']};
+const MOS=['#ff3b30','#ff0','#2f2','#0ff','#3a6bff','#f3f'];
+const bigWord=w=>[0,1,2,3,4].map(r=>'  '+w.split('').map((ch,i)=>BLOK[ch][r].split('').map(px=>px==='█'?`<span style="background:${MOS[i%6]}"> </span>`:' ').join('')+' ').join(''));
+const num=(v,dec=2)=>v==null?'-':v.toFixed(dec).replace('.',',');
+const pct=v=>v==null?'':(v>=0?'+':'')+num(v)+'%';
+const up=v=>v==null?'tw':v>=0?'tg':'tr';
+function when(iso){if(!iso)return'';const d=new Date(iso),n=new Date();return d.toDateString()===n.toDateString()?clock(false,d):`${pad(d.getDate())}/${pad(d.getMonth()+1)} ${clock(false,d)}`}
+const WMO=c=>c===0?'helder':c===1?'vrij zonnig':c===2?'half bewolkt':c===3?'bewolkt':c<=48?'mist':c<=57?'motregen':c<=67?'regen':c<=77?'sneeuw':c<=82?'buien':c<=86?'sneeuwbuien':'onweer';
+const WIND=d=>['N','NO','O','ZO','Z','ZW','W','NW'][Math.round(d/45)%8];
+const DEF_F={red:[100,'Index'],green:[101,'België'],yellow:[500,'Sport'],blue:[600,'Weer']};
+
+/* ---------- Pagina's opbouwen uit data.json ---------- */
+let D=null,LOADERR=false,REG=new Map(),PAGES=[100];
+const SECT=[['be',101,110,'BELGIË','bg-r'],['wereld',200,210,'WERELD','bg-b'],['fin',300,310,'FINANCIEEL','bg-m'],['sport',500,510,'SPORT','bg-g'],['tech',700,710,'WETENSCHAP & TECH','bg-c'],['cultuur',800,810,'CULTUUR & MEDIA','bg-m']];
+
+function koppen(items,kop,base,title,bg){const per=9,subs=Math.max(1,Math.ceil(items.length/per));
+ return sub=>{const L=[bar(bg,title+'  •  LAATSTE NIEUWS'),''];
+  if(!items.length)L.push(C('tw',' Geen berichten op dit moment.'));
+  items.slice((sub-1)*per,sub*per).forEach((it,j)=>{const i=(sub-1)*per+j;wrap(it.t,34).slice(0,2).forEach((x,k)=>L.push(k?C('tw','     '+x):' '+P('ty',base+i)+C('tw',' '+x)))});
+  return{L,subs,F:{red:[100,'Index'],green:subs>1?['sub','Meer ▸']:[base,'Eerste'],yellow:[base,'Eerste'],blue:[600,'Weer']}}}}
+function artikel(items,i,kop,base,title,bg){const it=items[i];const head=wrap(it.t).slice(0,4);const body=wrap(it.s);
+ const avail=ROWS-1-2-head.length-2-2;const chunks=[];for(let k=0;k<body.length;k+=avail)chunks.push(body.slice(k,k+avail));if(!chunks.length)chunks.push([]);
+ return sub=>{const L=[bar(bg,`${title}  ${i+1}/${items.length}`),''];head.forEach(x=>L.push(C('ty',' '+x)));L.push(C('tc',' '+when(it.time)+'  •  '+it.src));L.push('');
+  chunks[sub-1].forEach(x=>L.push(C('tw',' '+x)));while(L.length<ROWS-2)L.push('');
+  if(it.url)L.push(` <a class="tg" href="${esc(it.url)}" target="_blank" rel="noopener">Lees verder bij ${esc(it.src)} ▸</a>`);
+  return{L,subs:chunks.length,F:{red:[kop,'Koppen'],green:[i+1<items.length?base+i+1:kop,'Volgende'],yellow:[i>0?base+i-1:kop,'Vorige'],blue:[100,'Index']}}}}
+
+function build(){
+ REG=new Map();REG.set(100,indexPage);
+ SECT.forEach(([key,kop,base,title,bg])=>{const items=D?.news?.[key]||[];REG.set(kop,koppen(items,kop,base,title,bg));items.forEach((_,i)=>REG.set(base+i,artikel(items,i,kop,base,title,bg)))});
+ // Beurs
+ const Q=D?.quotes||[];const det=new Map();let dn=410;Q.forEach(g=>g.items.forEach(it=>{it.page=dn;det.set(dn,{g,it});dn++}));
+ REG.set(400,()=>{const L=[bar('bg-y','BEURS  •  AANDELEN','tw'),''];Q.forEach((g,i)=>L.push(lead(cap(g.title),401+i,'ty')));
+  const bel=Q.find(g=>g.id==='bel20');if(bel){const s=[...bel.items].filter(x=>x.chg!=null).sort((a,b)=>b.chg-a.chg);L.push('');L.push(C('tc',' BEL 20  stijgers / dalers'));
+   for(let k=0;k<3&&k<s.length;k++){const a=s[k],b=s[s.length-1-k];L.push(' '+P('tw',a.page,a.n.slice(0,12).padEnd(12))+C('tg',pct(a.chg).padStart(7))+'   '+P('tw',b.page,b.n.slice(0,12).padEnd(12))+C('tr',pct(b.chg).padStart(7)))}}
+  L.push('');L.push(C('tc',' Tik op een naam voor de details.'));return{L,subs:1,F:{red:[100,'Index'],green:[401,'Indexen'],yellow:[402,'BEL 20'],blue:[300,'Financieel']}}});
+ Q.forEach((g,gi)=>{const per=10,subs=Math.max(1,Math.ceil(g.items.length/per));const dec=g.id==='fx'?4:2;
+  REG.set(401+gi,sub=>{const L=[bar('bg-y',g.title,'tw'),C('tc',' Naam                 Koers    Verschil')];
+   g.items.slice((sub-1)*per,sub*per).forEach(it=>{const d=it.p<10&&g.id!=='crypto'?dec:2;L.push(' '+P('tw',it.page,it.n.slice(0,16).padEnd(16))+C('tw',num(it.p,d).padStart(11))+C(up(it.chg),pct(it.chg).padStart(11)))});
+   L.push('');const t=g.items.map(x=>x.t).filter(Boolean).sort().pop();L.push(C('ty',' Koersen met vertraging'+(t?'  •  '+when(t):'')));
+   return{L,subs,F:{red:[400,'Beurs'],green:subs>1?['sub','Meer ▸']:[401+(gi+1)%Q.length,'Volgende'],yellow:[401+(gi+1)%Q.length,'Volgende'],blue:[100,'Index']}}})});
+ det.forEach(({g,it},p)=>REG.set(p,()=>{const L=[bar('bg-y',g.title,'tw'),''];L.push(C('ty',' '+it.n.toUpperCase()));L.push(C('tc',' '+it.sym+(it.cur?'  •  '+it.cur:'')));L.push('');
+  const d=it.p<10?4:2;L.push(C('tw',' Laatste koers   ')+C('ty',num(it.p,d).padStart(14)));L.push(C('tw',' Verschil        ')+C(up(it.chg),pct(it.chg).padStart(14)));
+  L.push(C('tw',' Dagbereik laag  ')+C('tw',num(it.lo,d).padStart(14)));L.push(C('tw',' Dagbereik hoog  ')+C('tw',num(it.hi,d).padStart(14)));L.push('');
+  if(it.lo!=null&&it.hi!=null&&it.hi>it.lo){const w=30,pos=Math.round((it.p-it.lo)/(it.hi-it.lo)*(w-1));L.push(' '+C('tc','L ')+C('tb','═'.repeat(Math.max(0,pos)))+C('ty','█')+C('tb','═'.repeat(Math.max(0,w-1-pos)))+C('tc',' H'))}
+  L.push('');L.push(C('tc',' Stand van '+when(it.t)));
+  return{L,subs:1,F:{red:[401+Q.indexOf(g),'Lijst'],green:[det.has(p+1)?p+1:410,'Volgende'],yellow:[det.has(p-1)?p-1:p,'Vorige'],blue:[400,'Beurs']}}}));
+ // Weer
+ const BE=D?.weather?.be||[],EU=D?.weather?.eu||[];
+ if(BE.length){
+  REG.set(600,()=>{const L=[bar('bg-c','WEER  •  NU IN BELGIË','tw'),C('tc',' Plaats       Temp  Toestand      Wind')];
+   BE.forEach(c=>L.push(C('tw',' '+c.n.padEnd(12))+C('ty',(Math.round(c.now)+'°').padStart(5))+C('tw','  '+WMO(c.code).padEnd(13))+C('tc',(WIND(c.wdir)+' '+Math.round(c.wind)).padStart(6))));
+   L.push('');L.push(lead('Vandaag & morgen',601,'tw'));L.push(lead('5-daagse per stad',602,'tw'));L.push(lead('Europa',603,'tw'));L.push(lead('Zon op & onder',604,'tw'));
+   return{L,subs:1,F:{red:[100,'Index'],green:[601,'Vandaag'],yellow:[602,'5-daagse'],blue:[603,'Europa']}}});
+  REG.set(601,sub=>{const di=sub-1;const d=new Date(BE[0].days[di].d);const L=[bar('bg-c',(di?'MORGEN':'VANDAAG')+'  •  '+DAGEN[d.getDay()]+' '+d.getDate()+' '+MAAND[d.getMonth()],'tw'),C('tc',' Plaats         Min  Max  Regen  Weer')];
+   BE.forEach(c=>{const x=c.days[di];L.push(C('tw',' '+c.n.padEnd(13))+C('tc',(Math.round(x.min)+'°').padStart(5))+C('ty',(Math.round(x.max)+'°').padStart(5))+C('tb',(x.rain+'%').padStart(6))+C('tw','  '+WMO(x.code).slice(0,11)))});
+   return{L,subs:2,F:{red:[600,'Nu'],green:['sub',di?'Vandaag':'Morgen'],yellow:[602,'5-daagse'],blue:[100,'Index']}}});
+  REG.set(602,sub=>{const per=3,subs=Math.ceil(BE.length/per);const L=[bar('bg-c','WEER  •  5-DAAGSE','tw')];
+   BE.slice((sub-1)*per,sub*per).forEach(c=>{L.push('');L.push(C('ty',' '+c.n.toUpperCase()));c.days.forEach(x=>{const d=new Date(x.d);L.push(C('tw','  '+DG[d.getDay()]+' '+pad(d.getDate())+'  ')+C('tc',(Math.round(x.min)+'°').padStart(4))+C('ty',(Math.round(x.max)+'°').padStart(5))+C('tb',(x.rain+'%').padStart(6))+C('tw','  '+WMO(x.code)))})});
+   return{L,subs,F:{red:[600,'Nu'],green:['sub','Meer ▸'],yellow:[603,'Europa'],blue:[100,'Index']}}});
+  REG.set(603,()=>{const L=[bar('bg-c','WEER  •  EUROPA','tw'),C('tc',' Stad         Nu  Min  Max  Toestand')];
+   EU.forEach(c=>{const x=c.days[0];L.push(C('tw',' '+c.n.padEnd(11))+C('ty',(Math.round(c.now)+'°').padStart(4))+C('tc',(Math.round(x.min)+'°').padStart(5))+C('ty',(Math.round(x.max)+'°').padStart(5))+C('tw','  '+WMO(c.code)))});
+   return{L,subs:1,F:{red:[600,'België'],green:[604,'Zon'],yellow:[602,'5-daagse'],blue:[100,'Index']}}});
+  REG.set(604,()=>{const b=BE.find(c=>c.n==='Brussel')||BE[0];const L=[bar('bg-c','ZON OP & ONDER  •  '+b.n.toUpperCase(),'tw'),'',C('tc',' Dag          Op      Onder    Daglicht')];
+   b.days.forEach(x=>{const d=new Date(x.d);const[h1,m1]=x.rise.split(':').map(Number),[h2,m2]=x.set.split(':').map(Number);const len=(h2*60+m2)-(h1*60+m1);L.push(C('tw',' '+(DAGEN[d.getDay()]+' '+d.getDate()).padEnd(13))+C('ty',x.rise.padEnd(8))+C('tm',x.set.padEnd(9))+C('tw',Math.floor(len/60)+'u'+pad(len%60)))});
+   return{L,subs:1,F:{red:[600,'Weer'],green:[601,'Vandaag'],yellow:[603,'Europa'],blue:[100,'Index']}}});
+ }
+ // Ontspanning & info
+ REG.set(900,()=>{const L=[bar('bg-b','ONTSPANNING & INFO','ty'),''];L.push(lead('Horoscoop',901,'tc'));L.push(lead('Kalender',902,'tc'));L.push(lead('Over deze teletekst',999,'tc'));return{L,subs:1,F:{red:[100,'Index'],green:[901,'Horoscoop'],yellow:[902,'Kalender'],blue:[999,'Info']}}});
+ REG.set(901,horoscoop);REG.set(902,kalender);REG.set(999,info);
+ PAGES=[...REG.keys()].sort((a,b)=>a-b);
+}
+const cap=s=>s.charAt(0)+s.slice(1).toLowerCase();
+
+function indexPage(){const L=[...bigWord('ELENET'),'',bar('bg-b','TELETEKST  •  INDEX','ty')];
+ [['België',101],['Wereld',200],['Financieel',300],['Beurs & aandelen',400],['Sport',500],['Weer',600],['Wetenschap & tech',700],['Cultuur & media',800],['Ontspanning & info',900]].forEach(([l,n])=>L.push(lead(l,n)));
+ L.push('');L.push(D?C('tg',' Bijgewerkt: '+when(D.updated)):LOADERR?C('tr',' Geen verbinding met de nieuwsdienst.'):C('ty',' Gegevens laden...'));
+ L.push(C('tc',' Tik een nummer of veeg links/rechts'));return{L,subs:1,F:DEF_F}}
+function horoscoop(sub){const day=Math.floor(Date.now()/864e5);const L=[bar('bg-m','HOROSCOOP  (met een knipoog)','tw'),''];
+ const tekens=['Ram','Stier','Tweelingen','Kreeft','Leeuw','Maagd','Weegschaal','Schorpioen','Boogschutter','Steenbok','Waterman','Vissen'];
+ const zinnen=['Een onverwacht telefoontje brengt goed nieuws.','Neem vandaag de tijd voor jezelf.','Op het werk word je gewaardeerd.','Een oude vriend duikt weer op.','Let op je uitgaven deze week.','De liefde lacht je toe.','Een kleine reis doet wonderen.','Luister naar je gevoel.','Durf eens nee te zeggen.','Een goed gesprek lucht op.'];
+ const r=rng(day+700);const z=tekens.map(()=>zinnen[r()*zinnen.length|0]);
+ tekens.slice((sub-1)*4,sub*4).forEach((tk,i)=>{L.push(C('ty',' '+tk.toUpperCase()));wrap(z[(sub-1)*4+i]).forEach(x=>L.push(C('tw',' '+x)));L.push('')});
+ return{L,subs:3,F:{red:[900,'Ontspanning'],green:['sub','Meer ▸'],yellow:[902,'Kalender'],blue:[100,'Index']}}}
+function kalender(){const d=new Date();const y=d.getFullYear();const start=new Date(y,0,1);const doy=Math.floor((d-start)/864e5)+1;
+ const t=new Date(Date.UTC(y,d.getMonth(),d.getDate()));const dn=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-dn);const wk=Math.ceil(((t-Date.UTC(t.getUTCFullYear(),0,1))/864e5+1)/7);
+ const until=(m,dd)=>{let x=new Date(y,m,dd);if(x<new Date(y,d.getMonth(),d.getDate()))x=new Date(y+1,m,dd);return Math.round((x-new Date(y,d.getMonth(),d.getDate()))/864e5)};
+ const L=[bar('bg-b','KALENDER','ty'),'',C('ty',' '+DAGEN[d.getDay()]+' '+d.getDate()+' '+MAAND[d.getMonth()]+' '+y),'',
+  C('tw',' Weeknummer            ')+C('ty',String(wk)),C('tw',' Dag van het jaar      ')+C('ty',String(doy)),'',
+  C('tw',' Nog te gaan tot ...'),C('tc','   Sinterklaas         ')+C('ty',until(11,6)+' dagen'),C('tc','   Kerstmis            ')+C('ty',until(11,25)+' dagen'),C('tc','   Nieuwjaar           ')+C('ty',until(0,1)+' dagen'),C('tc','   Nationale feestdag  ')+C('ty',until(6,21)+' dagen')];
+ return{L,subs:1,F:{red:[900,'Ontspanning'],green:[901,'Horoscoop'],yellow:[600,'Weer'],blue:[100,'Index']}}}
+function info(){const L=[bar('bg-b','OVER DEZE TELETEKST','ty'),''];
+ wrap('Een eerbetoon aan de teletekst van vroeger, gevuld met actuele gegevens. Niet verbonden aan een omroep of kabelmaatschappij.').forEach(x=>L.push(C('tw',' '+x)));L.push('');
+ const srcs=D?[...new Set(Object.values(D.news).flat().map(i=>i.src))].sort((a,b)=>a.localeCompare(b)):[];
+ L.push(C('tc',' Nieuws uit '+srcs.length+' bronnen'));wrap(srcs.join(', '),37).slice(0,8).forEach(x=>L.push(C('tw','  '+x)));
+ L.push(C('tc',' Koersen: ')+C('tw','Yahoo Finance (vertraagd)'));L.push(C('tc',' Weer: ')+C('tw','Open-Meteo'));
+ L.push('');if(D)L.push(C('tg',' Laatst bijgewerkt: '+when(D.updated)));
+ return{L,subs:1,F:DEF_F}}
+
+/* ---------- Status & weergave ---------- */
+const TT={page:+store.get('elenet-ttx-page')||100,buf:'',hold:false,sub:1,openedAt:Date.now(),searchUntil:0,F:DEF_F};
+function render(){
+ const now=Date.now(),searching=now<TT.searchUntil,d=new Date();
+ const pnum=TT.buf?(TT.buf+'---').slice(0,3):String(TT.page);
+ const roll=searching?String(100+Math.floor(now/37)%800):String(TT.page);
+ let hdr=C('tw','P'+pnum.padEnd(4))+C(searching?'tg':'tw',roll.padEnd(4))+C('ty','ELENET ')+C('tw',`${DG[d.getDay()]} ${pad(d.getDate())} ${MAAND[d.getMonth()]} `)+C('ty',clock(true));
+ let lines=[],F=DEF_F;
+ if(!searching){
+  const fn=REG.get(TT.page);
+  if(!fn){lines=['','',C('tr',' Pagina '+TT.page+' bestaat niet.'),'',C(D||LOADERR?'tw':'ty',D||LOADERR?' Ga terug naar de index met 100.':' Gegevens laden...')]}
+  else{const first=fn(1);let sub=1;
+   if(first.subs>1){sub=TT.hold?Math.min(TT.sub,first.subs):1+Math.floor((now-TT.openedAt)/12000)%first.subs;TT.sub=sub;hdr+=`<span data-sub="1" class="${TT.hold?'tr':'tc'}">${TT.hold?' '+sub+'/'+first.subs+'■':' '+sub+'/'+first.subs}</span>`}
+   const res=sub===1?first:fn(sub);lines=res.L;F=res.F||DEF_F}
+ }
+ lines=[hdr,...lines].slice(0,ROWS);while(lines.length<ROWS)lines.push('');
+ $('#pg').innerHTML=lines.map(l=>`<div class="ln">${l||' '}</div>`).join('');
+ TT.F=F;['red','green','yellow','blue'].forEach(c=>{const b=$('#f-'+c);if(b.textContent!==F[c][1])b.textContent=F[c][1]});
+ $('#khold').classList.toggle('on',TT.hold);
+}
+function go(p){TT.page=p;TT.buf='';TT.hold=false;TT.sub=1;TT.openedAt=Date.now();TT.searchUntil=Date.now()+250+Math.random()*450;store.set('elenet-ttx-page',p);render();setTimeout(render,TT.searchUntil-Date.now()+10);$('#scr').scrollTop=0}
+function nextSub(){const fn=REG.get(TT.page);if(!fn)return;const n=fn(1).subs;TT.hold=true;TT.sub=TT.sub%n+1;render()}
+function step(d){const i=PAGES.indexOf(TT.page);if(i>=0)return go(PAGES[(i+d+PAGES.length)%PAGES.length]);const n=d>0?PAGES.find(x=>x>TT.page):[...PAGES].reverse().find(x=>x<TT.page);go(n??(d>0?PAGES[0]:PAGES.at(-1)))}
+function key(k){
+ try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}
+ if(/^\d$/.test(k)){if(!TT.buf&&k==='0')return;TT.buf+=k;if(TT.buf.length===3){const p=+TT.buf;TT.buf='';if(p>=100&&p<=999)go(p);else render()}else render();return}
+ switch(k){
+  case 'prev':step(-1);break;case 'next':step(1);break;case 'idx':go(100);break;
+  case 'del':TT.buf=TT.buf.slice(0,-1);render();break;
+  case 'hold':TT.hold=!TT.hold;render();break;
+  case 'red':case 'green':case 'yellow':case 'blue':{const t=TT.F[k][0];t==='sub'?nextSub():go(t);break}
+ }
+}
+$('#pad').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b)key(b.dataset.k)});
+$('#fast').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(b)key(b.dataset.f)});
+$('#pg').addEventListener('click',e=>{const s=e.target.closest('[data-p]');if(s)return go(+s.dataset.p);if(e.target.closest('[data-sub]'))nextSub()});
+addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;const m={ArrowLeft:'prev',ArrowRight:'next',ArrowUp:'next',ArrowDown:'prev',Backspace:'del',Home:'idx',h:'hold',F1:'red',F2:'green',F3:'yellow',F4:'blue'};const k=/^\d$/.test(e.key)?e.key:m[e.key];if(k){e.preventDefault();key(k)}});
+let tx=null,ty=null;const scr=$('#scr');
+scr.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
+scr.addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5)key(dx<0?'next':'prev')},{passive:true});
+
+/* Lettergrootte zo kiezen dat 40 kolommen x 22 rijen precies passen */
+function fit(){const pg=$('#pg');pg.style.fontSize='100px';const probe=document.createElement('span');probe.textContent='0'.repeat(40);probe.style.cssText='position:absolute;visibility:hidden;white-space:pre;font-family:inherit';pg.appendChild(probe);const w=probe.getBoundingClientRect().width;probe.remove();
+ const cs=getComputedStyle(scr);const aw=scr.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),ah=scr.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
+ pg.style.fontSize=Math.max(8,Math.min(aw/(w/100),ah/ROWS))+'px'}
+addEventListener('resize',fit);
+
+async function load(){try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error(r.status);D=await r.json();LOADERR=false;build()}catch(e){if(!D)LOADERR=true}render()}
+build();render();fit();if(document.fonts)document.fonts.ready.then(fit);
+load();setInterval(load,5*60*1000);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});setInterval(render,1000);
+</script>
+
+</body>
+</html>
