@@ -33,14 +33,25 @@ body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);overflow:hidde
 #pg [data-sub]{cursor:pointer}
 .tw{color:var(--fg)}.tr{color:var(--t-red)}.tg{color:var(--t-green)}.ty{color:var(--t-yellow)}.tb{color:var(--t-blue)}.tm{color:var(--t-mag)}.tc{color:var(--t-cyan)}
 .bg-b{background:#0018c8}.bg-r{background:#c00}.bg-g{background:#080}.bg-m{background:#909}.bg-c{background:#077}.bg-y{background:#880}
-.ctl{background:var(--panel);border-top:1px solid #222;padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));display:grid;gap:8px}
+.app{position:relative}
+.ctl{background:var(--panel);border-top:1px solid #222;padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));display:grid;gap:6px}
 .fast{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.fast button{height:44px;border:0;border-radius:10px;font:600 13px var(--f-ui);color:#000;cursor:pointer;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.nav button{height:36px;border:0;border-radius:9px;background:var(--key);color:var(--dim);font:600 13px var(--f-ui);cursor:pointer}
+.nav button.on{color:var(--t-red)}
+.nav .kpad{background:#2b2b36;color:var(--t-yellow);font:400 22px var(--f-tt)}
+.pad{position:absolute;left:0;right:0;bottom:0;z-index:5;background:var(--panel);border-top:1px solid #333;border-radius:16px 16px 0 0;
+ padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 30px #000c;display:grid;gap:8px;animation:up .18s ease-out}
+.pad[hidden]{display:none}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.padgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.padgrid button{height:48px;border:0;border-radius:10px;background:var(--key);color:var(--fg);font:400 28px var(--f-tt);cursor:pointer;box-shadow:inset 0 -3px 0 #0006}
+.padbar{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
+.padbar span{font:400 26px var(--f-tt);color:var(--t-yellow);padding-left:4px}
+.padbar button{height:40px;padding:0 16px;border:0;border-radius:10px;background:var(--key);color:var(--fg);font:600 14px var(--f-ui);cursor:pointer}
+@media (prefers-reduced-motion:reduce){.pad{animation:none}}
+.fast button{height:40px;border:0;border-radius:10px;font:600 13px var(--f-ui);color:#000;cursor:pointer;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fast .r{background:var(--t-red)}.fast .g{background:var(--t-green)}.fast .y{background:var(--t-yellow)}.fast .c{background:var(--t-cyan)}
-.pad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-.pad button{height:clamp(40px,7vh,54px);border:0;border-radius:10px;background:var(--key);color:var(--fg);font:400 26px var(--f-tt);cursor:pointer;box-shadow:inset 0 -3px 0 #0006}
-.pad button.s{font:600 13px var(--f-ui);color:var(--dim)}
-.pad button.s.on{color:var(--t-red)}
 button:active{filter:brightness(1.4);transform:translateY(1px)}
 button:focus-visible{outline:2px solid var(--t-yellow);outline-offset:2px}
 </style>
@@ -53,11 +64,16 @@ button:focus-visible{outline:2px solid var(--t-yellow);outline-offset:2px}
   <div class="fast" id="fast">
    <button class="r" id="f-red" data-f="red">Index</button><button class="g" id="f-green" data-f="green">België</button><button class="y" id="f-yellow" data-f="yellow">Sport</button><button class="c" id="f-blue" data-f="blue">Weer</button>
   </div>
-  <div class="pad" id="pad">
+  <div class="nav" id="nav">
+   <button id="kprev" data-k="prev" aria-label="Vorige pagina">◀ P−</button><button id="kidx" data-k="idx">100</button><button id="kpad" class="kpad" data-k="pad" aria-expanded="false" aria-controls="pad">123</button><button id="khold" data-k="hold">HOLD</button><button id="knext" data-k="next" aria-label="Volgende pagina">P+ ▶</button>
+  </div>
+ </div>
+ <div class="pad" id="pad" hidden>
+  <div class="padgrid">
    <button id="k1" data-k="1">1</button><button id="k2" data-k="2">2</button><button id="k3" data-k="3">3</button><button id="k4" data-k="4">4</button><button id="k5" data-k="5">5</button>
    <button id="k6" data-k="6">6</button><button id="k7" data-k="7">7</button><button id="k8" data-k="8">8</button><button id="k9" data-k="9">9</button><button id="k0" data-k="0">0</button>
-   <button id="kprev" class="s" data-k="prev" aria-label="Vorige pagina">◀ P−</button><button id="kidx" class="s" data-k="idx">100</button><button id="khold" class="s" data-k="hold">HOLD</button><button id="kdel" class="s" data-k="del" aria-label="Wissen">⌫</button><button id="knext" class="s" data-k="next" aria-label="Volgende pagina">P+ ▶</button>
   </div>
+  <div class="padbar"><span id="padnum">P_ _ _</span><button id="kdel" data-k="del" aria-label="Wissen">⌫</button><button id="kclose" data-k="close" aria-label="Sluiten">Sluiten ▾</button></div>
  </div>
 </div>
 
@@ -265,18 +281,25 @@ function nextSub(){const fn=REG.get(TT.page);if(!fn)return;const n=fn(1).subs;TT
 function step(d){const i=PAGES.indexOf(TT.page);if(i>=0)return go(PAGES[(i+d+PAGES.length)%PAGES.length]);const n=d>0?PAGES.find(x=>x>TT.page):[...PAGES].reverse().find(x=>x<TT.page);go(n??(d>0?PAGES[0]:PAGES.at(-1)))}
 function key(k){
  try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}
- if(/^\d$/.test(k)){if(!TT.buf&&k==='0')return;TT.buf+=k;if(TT.buf.length===3){const p=+TT.buf;TT.buf='';if(p>=100&&p<=999)go(p);else render()}else render();return}
+ if(/^\d$/.test(k)){if(!TT.buf&&k==='0')return;TT.buf+=k;if(TT.buf.length===3){const p=+TT.buf;TT.buf='';padOpen(false);if(p>=100&&p<=999)go(p);else render()}else render();padShow();return}
  switch(k){
   case 'prev':step(-1);break;case 'next':step(1);break;case 'idx':go(100);break;
-  case 'del':TT.buf=TT.buf.slice(0,-1);render();break;
+  case 'del':TT.buf=TT.buf.slice(0,-1);render();padShow();break;
+  case 'pad':padOpen($('#pad').hidden);break;
+  case 'close':TT.buf='';padOpen(false);render();break;
   case 'hold':TT.hold=!TT.hold;render();break;
   case 'red':case 'green':case 'yellow':case 'blue':{const t=TT.F[k][0];t==='sub'?nextSub():go(t);break}
  }
 }
 $('#pad').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b)key(b.dataset.k)});
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b)key(b.dataset.k)});
+/* Cijferpaneel: schuift op met de 123-knop, verdwijnt na 3 cijfers, met Sluiten of door ernaast te tikken */
+function padShow(){$('#padnum').textContent='P'+(TT.buf+'___').slice(0,3).split('').join(' ')}
+function padOpen(on){$('#pad').hidden=!on;$('#kpad').setAttribute('aria-expanded',on);if(on)padShow()}
+$('#scr').addEventListener('click',e=>{if(!$('#pad').hidden&&!e.target.closest('[data-p],a')){TT.buf='';padOpen(false);render()}});
 $('#fast').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(b)key(b.dataset.f)});
 $('#pg').addEventListener('click',e=>{const s=e.target.closest('[data-p]');if(s)return go(+s.dataset.p);if(e.target.closest('[data-sub]'))nextSub()});
-addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;const m={ArrowLeft:'prev',ArrowRight:'next',ArrowUp:'next',ArrowDown:'prev',Backspace:'del',Home:'idx',h:'hold',F1:'red',F2:'green',F3:'yellow',F4:'blue'};const k=/^\d$/.test(e.key)?e.key:m[e.key];if(k){e.preventDefault();key(k)}});
+addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;const m={ArrowLeft:'prev',ArrowRight:'next',ArrowUp:'next',ArrowDown:'prev',Backspace:'del',Home:'idx',h:'hold',Escape:'close',F1:'red',F2:'green',F3:'yellow',F4:'blue'};const k=/^\d$/.test(e.key)?e.key:m[e.key];if(k){e.preventDefault();key(k)}});
 let tx=null,ty=null;const scr=$('#scr');
 scr.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
 scr.addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5)key(dx<0?'next':'prev')},{passive:true});
