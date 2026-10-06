@@ -64,7 +64,7 @@ jobs:
       - run: pip install anthropic
       - name: Nieuws, koersen en weer ophalen
         env:
-          PREV_URL: https://thibauddec.github.io/elenet-teletekst/data.json
+          PREV_URL: https://thibauddec.github.io/txt.info/data.json
           # Optioneel: met deze sleutel deelt Claude de berichten in voor oorlog (700) en klimaat (800).
           # Zonder sleutel gebeurt dat met trefwoorden.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
