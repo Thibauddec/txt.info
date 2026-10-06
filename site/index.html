@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Teletekst">
+<meta name="apple-mobile-web-app-title" content="txt.info">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>Elenet Teletekst</title>
+<title>txt.info</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
 <style>
 /* Eén scherm: teletekstpagina bovenaan (schaalt mee met de breedte), bediening onderaan. Bewust altijd zwart, zoals echte teletekst. */
@@ -54,6 +54,8 @@ body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);overflow:hidde
 .fast .r{background:var(--t-red)}.fast .g{background:var(--t-green)}.fast .y{background:var(--t-yellow)}.fast .c{background:var(--t-cyan)}
 button:active{filter:brightness(1.4);transform:translateY(1px)}
 button:focus-visible{outline:2px solid var(--t-yellow);outline-offset:2px}
+.blink{animation:bl 1s steps(1) infinite}@keyframes bl{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.blink{animation:none}}
 </style>
 </head>
 <body>
@@ -95,7 +97,8 @@ const P=(cls,p,label=p)=>`<span class="${cls}" data-p="${p}">${esc(label)}</span
 const bar=(cls,s,fg='tw')=>`<span class="${cls} ${fg}">${esc(' '+s.padEnd(39).slice(0,39))}</span>`;
 const lead=(label,p,cl='tc')=>C(cl,' '+label+' '+'.'.repeat(Math.max(1,34-label.length))+' ')+P('tw',p);
 function wrap(s,w=38){const out=[];let l='';String(s||'').split(' ').forEach(x=>{while(x.length>w){out.push(x.slice(0,w));x=x.slice(w)}if((l+' '+x).trim().length>w){out.push(l.trim());l=x}else l+=' '+x});if(l.trim())out.push(l.trim());return out}
-const BLOK={E:['███','█  ','██ ','█  ','███'],L:['█  ','█  ','█  ','█  ','███'],N:['█  █','██ █','█ ██','█  █','█  █'],T:['███',' █ ',' █ ',' █ ',' █ ']};
+const BLOK={T:['███',' █ ',' █ ',' █ ',' █ '],X:['█ █','█ █',' █ ','█ █','█ █'],'.':[' ',' ',' ',' ','█'],I:['███',' █ ',' █ ',' █ ','███'],
+ N:['█  █','██ █','█ ██','█  █','█  █'],F:['███','█  ','██ ','█  ','█  '],O:['███','█ █','█ █','█ █','███']};
 const MOS=['#ff3b30','#ff0','#2f2','#0ff','#3a6bff','#f3f'];
 const bigWord=w=>[0,1,2,3,4].map(r=>'  '+w.split('').map((ch,i)=>BLOK[ch][r].split('').map(px=>px==='█'?`<span style="background:${MOS[i%6]}"> </span>`:' ').join('')+' ').join(''));
 const num=(v,dec=2)=>v==null?'-':v.toFixed(dec).replace('.',',');
@@ -231,7 +234,7 @@ function warnLine(){const W=D?.warnings||[];if(!W.length)return C('tg',' Geen we
  return `<span style="background:${c[0]};color:${c[1]}" data-p="605">${esc((' ! CODE '+c[2]+': '+w.event.replace(/^(Gele|Oranje|Rode) waarschuwing voor /i,'')+(W.length>1?' (+'+(W.length-1)+')':'')).padEnd(34).slice(0,34))}</span> `+P('tw',605)}
 const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n){let c=a.slice(i,i+n);while(c.length&&!c[0])c=c.slice(1);o.push(c)}return o.length?o:[[]]};
 
-function indexPage(){const L=[...bigWord('ELENET'),bar('bg-b','TELETEKST  •  INDEX','ty')];
+function indexPage(){const L=[...bigWord('TXT.INFO'),C('tg',' C:\\TXT.INFO> ')+'<span class="tg blink">_</span>',bar('bg-b','TELETEKST  •  INDEX','ty')];
  [['België',101],['Wereld',200],['Financieel',300],['Beurs & aandelen',400],['Sport',500],['Weer',600],['Wetenschap & tech',610],['Cultuur & media',650],['Oorlog & brandhaarden',700],['Klimaat',800],['Weetjes',900]].forEach(([l,n])=>L.push(lead(l,n)));
  L.push('');L.push(D?C('tg',' Bijgewerkt: '+when(D.updated)):LOADERR?C('tr',' Geen verbinding met de nieuwsdienst.'):C('ty',' Gegevens laden...'));
  L.push(D?.warnings?.length?warnLine():C('tc',' Tik een nummer of veeg links/rechts'));return{L,subs:1,F:DEF_F}}
@@ -262,7 +265,7 @@ function render(){
  const now=Date.now(),searching=now<TT.searchUntil,d=new Date();
  const pnum=TT.buf?(TT.buf+'---').slice(0,3):String(TT.page);
  const roll=searching?String(100+Math.floor(now/37)%800):String(TT.page);
- let hdr=C('tw','P'+pnum.padEnd(4))+C(searching?'tg':'tw',roll.padEnd(4))+C('ty','ELENET ')+C('tw',`${DG[d.getDay()]} ${pad(d.getDate())} ${MAAND[d.getMonth()]} `)+C('ty',clock(true));
+ let hdr=C('tw','P'+pnum.padEnd(4))+C(searching?'tg':'tw',roll.padEnd(4))+C('ty','txt.info ')+C('tw',`${pad(d.getDate())} ${MAAND[d.getMonth()]} `)+C('ty',clock(true));
  let lines=[],F=DEF_F;
  if(!searching){
   const fn=REG.get(TT.page);

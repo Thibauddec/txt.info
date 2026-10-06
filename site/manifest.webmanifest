@@ -1,6 +1,6 @@
 {
-  "name": "Elenet Teletekst",
-  "short_name": "Teletekst",
+  "name": "txt.info",
+  "short_name": "txt.info",
   "description": "Teletekst zoals vroeger: nieuws, beurs, sport en weer.",
   "lang": "nl",
   "start_url": "./",

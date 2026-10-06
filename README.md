@@ -1,4 +1,4 @@
-# Elenet Teletekst
+# txt.info
 
 Teletekst zoals vroeger, als app voor je gsm: https://thibauddec.github.io/elenet-teletekst/
 
