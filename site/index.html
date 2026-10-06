@@ -12,13 +12,13 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>txt.info</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=VT323&display=swap">
 <style>
 /* Eén scherm: teletekstpagina bovenaan (schaalt mee met de breedte), bediening onderaan. Bewust altijd zwart, zoals echte teletekst. */
 :root{
  --bg:#000;--panel:#0c0c10;--key:#1d1d24;--fg:#fff;--dim:#8a8a99;
  --t-red:#ff3b30;--t-green:#2f2;--t-yellow:#ff0;--t-blue:#3a6bff;--t-mag:#f3f;--t-cyan:#0ff;
- --f-tt:"VT323","Courier New",monospace;--f-ui:Tahoma,Verdana,"Segoe UI",sans-serif;
+ --f-tt:"JetBrains Mono",ui-monospace,Consolas,"Courier New",monospace;--f-key:"VT323","Courier New",monospace;--lh:1.3;--f-ui:Tahoma,Verdana,"Segoe UI",sans-serif;
  color-scheme:dark;
 }
 html,body{height:100%;margin:0}
@@ -26,9 +26,10 @@ html,body{height:100%;margin:0}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);overflow:hidden;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .app{height:100%;display:flex;flex-direction:column;max-width:640px;margin:0 auto}
-#scr{flex:1;min-height:0;display:flex;align-items:flex-start;justify-content:center;padding:12px 16px 6px;overflow:hidden}
-#pg{font-family:var(--f-tt);line-height:1;white-space:pre;font-variant-ligatures:none;font-feature-settings:"liga" 0;font-size:20px}
-.ln{height:1em}
+#scr{flex:1;min-height:0;display:flex;align-items:flex-start;justify-content:center;padding:12px 8px 6px;overflow:hidden}
+#pg{font-family:var(--f-tt);font-weight:500;line-height:var(--lh);white-space:pre;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-variant-ligatures:none;font-feature-settings:"liga" 0;font-size:20px}
+.ln{height:calc(var(--lh)*1em)}
+.ln:has(.lgw){height:1em;line-height:1}  /* blokletter-logo: rijen tegen elkaar */
 #pg [data-p],#pg a{cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
 #pg [data-sub]{cursor:pointer}
 .tw{color:var(--fg)}.tr{color:var(--t-red)}.tg{color:var(--t-green)}.ty{color:var(--t-yellow)}.tb{color:var(--t-blue)}.tm{color:var(--t-mag)}.tc{color:var(--t-cyan)}
@@ -39,15 +40,15 @@ body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);overflow:hidde
 .nav{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .nav button{height:36px;border:0;border-radius:9px;background:var(--key);color:var(--dim);font:600 13px var(--f-ui);cursor:pointer}
 .nav button.on{color:var(--t-red)}
-.nav .kpad{background:#2b2b36;color:var(--t-yellow);font:400 22px var(--f-tt)}
+.nav .kpad{background:#2b2b36;color:var(--t-yellow);font:400 22px var(--f-key)}
 .pad{position:absolute;left:0;right:0;bottom:0;z-index:5;background:var(--panel);border-top:1px solid #333;border-radius:16px 16px 0 0;
  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 30px #000c;display:grid;gap:8px;animation:up .18s ease-out}
 .pad[hidden]{display:none}
 @keyframes up{from{transform:translateY(100%)}to{transform:none}}
 .padgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-.padgrid button{height:48px;border:0;border-radius:10px;background:var(--key);color:var(--fg);font:400 28px var(--f-tt);cursor:pointer;box-shadow:inset 0 -3px 0 #0006}
+.padgrid button{height:48px;border:0;border-radius:10px;background:var(--key);color:var(--fg);font:400 28px var(--f-key);cursor:pointer;box-shadow:inset 0 -3px 0 #0006}
 .padbar{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
-.padbar span{font:400 26px var(--f-tt);color:var(--t-yellow);padding-left:4px}
+.padbar span{font:400 26px var(--f-key);color:var(--t-yellow);padding-left:4px}
 .padbar button{height:40px;padding:0 16px;border:0;border-radius:10px;background:var(--key);color:var(--fg);font:600 14px var(--f-ui);cursor:pointer}
 @media (prefers-reduced-motion:reduce){.pad{animation:none}}
 .fast button{height:40px;border:0;border-radius:10px;font:600 13px var(--f-ui);color:#000;cursor:pointer;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -100,7 +101,7 @@ function wrap(s,w=38){const out=[];let l='';String(s||'').split(' ').forEach(x=>
 const BLOK={T:['███',' █ ',' █ ',' █ ',' █ '],X:['█ █','█ █',' █ ','█ █','█ █'],'.':[' ',' ',' ',' ','█'],I:['███',' █ ',' █ ',' █ ','███'],
  N:['█  █','██ █','█ ██','█  █','█  █'],F:['███','█  ','██ ','█  ','█  '],O:['███','█ █','█ █','█ █','███']};
 const MOS=['#ff3b30','#ff0','#2f2','#0ff','#3a6bff','#f3f'];
-const bigWord=w=>[0,1,2,3,4].map(r=>'  '+w.split('').map((ch,i)=>BLOK[ch][r].split('').map(px=>px==='█'?`<span style="background:${MOS[i%6]}"> </span>`:' ').join('')+' ').join(''));
+const bigWord=w=>[0,1,2,3,4].map(r=>'<span class="lgw"></span>  '+w.split('').map((ch,i)=>BLOK[ch][r].split('').map(px=>px==='█'?`<span style="background:${MOS[i%6]}"> </span>`:' ').join('')+' ').join(''));
 const num=(v,dec=2)=>v==null?'-':v.toFixed(dec).replace('.',',');
 const pct=v=>v==null?'':(v>=0?'+':'')+num(v)+'%';
 const up=v=>v==null?'tw':v>=0?'tg':'tr';
@@ -275,7 +276,9 @@ function render(){
    const res=sub===1?first:fn(sub);lines=res.L;F=res.F||DEF_F}
  }
  lines=[hdr,...lines].slice(0,ROWS);while(lines.length<ROWS)lines.push('');
- $('#pg').innerHTML=lines.map(l=>`<div class="ln">${l||' '}</div>`).join('');
+ // Enkel regels vervangen die echt veranderd zijn (meestal alleen de klok), zodat de tekst niet flikkert
+ const pg=$('#pg');if(pg.children.length!==lines.length){pg.innerHTML=lines.map(l=>`<div class="ln">${l||' '}</div>`).join('')}
+ else lines.forEach((l,i)=>{const h=l||' ';if(pg.children[i]._h!==h){pg.children[i].innerHTML=h;pg.children[i]._h=h}});
  TT.F=F;['red','green','yellow','blue'].forEach(c=>{const b=$('#f-'+c);if(b.textContent!==F[c][1])b.textContent=F[c][1]});
  $('#khold').classList.toggle('on',TT.hold);
 }
@@ -310,7 +313,8 @@ scr.addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTouches
 /* Lettergrootte zo kiezen dat 40 kolommen x 22 rijen precies passen */
 function fit(){const pg=$('#pg');pg.style.fontSize='100px';const probe=document.createElement('span');probe.textContent='0'.repeat(40);probe.style.cssText='position:absolute;visibility:hidden;white-space:pre;font-family:inherit';pg.appendChild(probe);const w=probe.getBoundingClientRect().width;probe.remove();
  const cs=getComputedStyle(scr);const aw=scr.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),ah=scr.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
- pg.style.fontSize=Math.max(8,Math.min(aw/(w/100),ah/ROWS))+'px'}
+ const lh=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lh'))||1.3;
+ pg.style.fontSize=Math.max(8,Math.floor(Math.min(aw/(w/100),ah/(ROWS*lh))))+'px'}  // hele pixels: scherpere letters
 addEventListener('resize',fit);
 
 async function load(){try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error(r.status);D=await r.json();LOADERR=false;build()}catch(e){if(!D)LOADERR=true}render()}
