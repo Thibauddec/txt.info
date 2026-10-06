@@ -429,6 +429,161 @@ def warnings():
     return sorted(groups.values(), key=lambda g: (rank[g["level"]], g["onset"] or ""))
 
 
+ESPN = "https://site.api.espn.com/apis"
+# (ESPN-pad, naam, korte naam, klassement?, teletekstpagina, categorie)
+LEAGUES = [("soccer/bel.1", "JUPILER PRO LEAGUE", "Pro League", True, 591, "club"),
+           ("soccer/eng.1", "PREMIER LEAGUE", "Premier L.", True, 592, "club"),
+           ("soccer/ned.1", "EREDIVISIE", "Eredivisie", True, 593, "club"),
+           ("soccer/uefa.champions", "CHAMPIONS LEAGUE", "Champions L.", True, 594, "club"),
+           ("soccer/uefa.europa", "EUROPA LEAGUE", "Europa L.", False, 595, "club"),
+           ("soccer/uefa.europa.conf", "CONFERENCE LEAGUE", "Conference L.", False, 596, "club"),
+           ("soccer/uefa.nations", "NATIONS LEAGUE", "Nations L.", False, 580, "interland"),
+           ("soccer/uefa.euroq", "EK-KWALIFICATIE", "EK-kwalif.", True, 581, "interland"),
+           ("soccer/fifa.worldq.uefa", "WK-KWALIFICATIE", "WK-kwalif.", True, 582, "interland"),
+           ("soccer/uefa.euro_u21_qual", "JONGE DUIVELS  U21", "Jonge Duivels", False, 583, "interland"),
+           ("soccer/fifa.friendly", "VRIENDSCHAPPELIJK", "Vriendsch.", False, 584, "interland"),
+           ("basketball/nba", "BASKETBAL  NBA", "Basket NBA", False, 587, "ander"),
+           ("football/nfl", "AMERICAN FOOTBALL  NFL", "NFL", False, 588, "ander"),
+           ("hockey/nhl", "IJSHOCKEY  NHL", "IJshockey NHL", False, 589, "ander")]
+LANDEN = {"Belgium": "België", "Netherlands": "Nederland", "France": "Frankrijk", "Germany": "Duitsland", "Italy": "Italië",
+          "Spain": "Spanje", "England": "Engeland", "Scotland": "Schotland", "Wales": "Wales", "Northern Ireland": "Noord-Ierland",
+          "Republic of Ireland": "Ierland", "Ireland": "Ierland", "Portugal": "Portugal", "Switzerland": "Zwitserland", "Austria": "Oostenrijk",
+          "Denmark": "Denemarken", "Sweden": "Zweden", "Norway": "Noorwegen", "Finland": "Finland", "Iceland": "IJsland", "Poland": "Polen",
+          "Czechia": "Tsjechië", "Czech Republic": "Tsjechië", "Slovakia": "Slowakije", "Hungary": "Hongarije", "Romania": "Roemenië",
+          "Bulgaria": "Bulgarije", "Greece": "Griekenland", "Türkiye": "Turkije", "Turkey": "Turkije", "Croatia": "Kroatië", "Serbia": "Servië",
+          "Slovenia": "Slovenië", "Bosnia-Herzegovina": "Bosnië", "Montenegro": "Montenegro", "Albania": "Albanië", "North Macedonia": "N.-Macedonië",
+          "Ukraine": "Oekraïne", "Russia": "Rusland", "Belarus": "Wit-Rusland", "Georgia": "Georgië", "Armenia": "Armenië", "Azerbaijan": "Azerbeidzjan",
+          "Kazakhstan": "Kazachstan", "Lithuania": "Litouwen", "Latvia": "Letland", "Estonia": "Estland", "Luxembourg": "Luxemburg",
+          "Cyprus": "Cyprus", "Malta": "Malta", "Moldova": "Moldavië", "Kosovo": "Kosovo", "Israel": "Israël", "Faroe Islands": "Faeröer",
+          "Morocco": "Marokko", "United States": "Verenigde Staten", "USA": "Verenigde Staten", "Brazil": "Brazilië", "Argentina": "Argentinië",
+          "Mexico": "Mexico", "Japan": "Japan", "South Korea": "Zuid-Korea", "Egypt": "Egypte", "Tunisia": "Tunesië", "Algeria": "Algerije"}
+
+
+def nl(name):
+    for en, n in LANDEN.items():
+        if name == en or name.startswith(en + " "):
+            return n + name[len(en):]
+    return name
+
+
+def espn(path):
+    try:
+        return json.loads(get(path, 20))
+    except Exception:
+        return None
+
+
+def league(lid, name, short, with_table, page, cat):
+    """Uitslagen van de voorbije 30 dagen (recentste eerst), programma voor de komende 7 dagen en (optioneel) het klassement."""
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    # ESPN aanvaardt hier enkel een maand (JJJJMM); zo dekken we 30 dagen terug en 14 vooruit
+    months = sorted({(now + timedelta(days=i)).strftime("%Y%m") for i in (-30, 0, 14)})
+    boards = [espn(f"{ESPN}/site/v2/sports/{lid}/scoreboard?dates={m}&limit=300") for m in months]
+    lo, hi = iso(now - timedelta(days=30)), iso(now + timedelta(days=14))
+    boards = [{"events": [e for e in (b or {}).get("events", []) if lo <= norm_time(e["date"]) <= hi]} for b in boards]
+    results, upcoming, seen_ev = [], [], set()
+    for b in boards:
+        for ev in (b or {}).get("events", []):
+            if ev["id"] in seen_ev:
+                continue
+            seen_ev.add(ev["id"])
+            c = ev["competitions"][0]
+            teams = {x["homeAway"]: x for x in c["competitors"]}
+            st = ev["status"]["type"]
+            m = dict(d=ev["date"], home=nl(teams["home"]["team"]["shortDisplayName"]), away=nl(teams["away"]["team"]["shortDisplayName"]),
+                     hs=teams["home"].get("score"), as_=teams["away"].get("score"), state=st["state"], detail=st.get("shortDetail", ""))
+            (upcoming if st["state"] == "pre" else results).append(m)
+    results.sort(key=lambda m: m["d"], reverse=True)
+    upcoming.sort(key=lambda m: m["d"])
+    table = []
+    if with_table and (results or upcoming):  # geen oud klassement tonen voor een competitie die stilligt
+        st = espn(f"https://site.web.api.espn.com/apis/v2/sports/{lid}/standings")
+        for ch in (st or {}).get("children", [])[:1]:
+            for e in ch["standings"]["entries"]:
+                s = {x["name"]: x.get("displayValue") for x in e["stats"]}
+                table.append(dict(team=nl(e["team"].get("shortDisplayName") or e["team"]["displayName"]), pl=s.get("gamesPlayed"), w=s.get("wins"),
+                                  d=s.get("ties"), l=s.get("losses"), gd=s.get("pointDifferential"), pts=s.get("points"), rank=s.get("rank")))
+        table.sort(key=lambda t: int(t["rank"] or 99))
+    # Wedstrijden van België eerst bij interlands met veel wedstrijden
+    if cat == "interland":
+        results.sort(key=lambda m: "België" not in (m["home"] + m["away"]))
+        upcoming.sort(key=lambda m: "België" not in (m["home"] + m["away"]))
+    return dict(id=lid, name=name, short=short, page=page, cat=cat, results=results[:40], upcoming=upcoming[:40], table=table)
+
+
+def tennis(tour):
+    """Enkelspel van de lopende toernooien: recente uitslagen, komende partijen en de wereldranglijst."""
+    d = espn(f"{ESPN}/site/v2/sports/tennis/{tour}/scoreboard") or {}
+    events = []
+    for ev in d.get("events", []):
+        done, todo = [], []
+        for gr in ev.get("groupings", []):
+            gname = gr.get("grouping", {}).get("displayName", "")
+            if "Singles" not in gname or ("Women" in gname) != (tour == "wta"):  # gemengde toernooien: enkel heren (ATP) of dames (WTA)
+                continue
+            for c in gr.get("competitions", []):
+                comp = c.get("competitors", [])
+                if len(comp) != 2:
+                    continue
+                st = c.get("status", {}).get("type", {})
+                ath = [x.get("athlete") or {} for x in comp]
+                names = [a.get("shortName") or a.get("displayName") or "?" for a in ath]
+                be = any(a.get("flag", {}).get("alt") == "Belgium" for a in ath)
+                rnd = (c.get("round") or {}).get("displayName", "")
+                if st.get("state") == "post":
+                    w = 0 if comp[0].get("winner") else 1
+                    l = 1 - w
+                    ls = [comp[w].get("linescores", []), comp[l].get("linescores", [])]
+                    score = " ".join(f"{int(a.get('value', 0))}-{int(b.get('value', 0))}" for a, b in zip(*ls))
+                    done.append(dict(d=c.get("date"), r=rnd, p1=names[w], p2=names[l], score=score, be=be))
+                elif st.get("state") == "pre":
+                    todo.append(dict(d=c.get("date"), r=rnd, p1=names[0], p2=names[1], be=be))
+        done.sort(key=lambda m: (not m["be"], -(datetime.fromisoformat(m["d"].replace("Z", "+00:00")).timestamp() if m["d"] else 0)))
+        todo.sort(key=lambda m: (not m["be"], m["d"] or ""))
+        if done or todo:
+            events.append(dict(name=ev.get("name", ""), done=done[:36], todo=todo[:18]))
+    rk = espn(f"{ESPN}/site/v2/sports/tennis/{tour}/rankings") or {}
+    ranks = [dict(rank=r.get("current"), name=r["athlete"].get("displayName"), be=r["athlete"].get("flagAltText") == "Belgium",
+                  pts=r.get("points")) for r in (rk.get("rankings") or [{}])[0].get("ranks", [])[:30]]
+    # Belgen buiten de top 30 er toch bij
+    ranks += [dict(rank=r.get("current"), name=r["athlete"].get("displayName"), be=True, pts=r.get("points"))
+              for r in (rk.get("rankings") or [{}])[0].get("ranks", [])[30:] if r["athlete"].get("flagAltText") == "Belgium"]
+    return dict(events=events, ranks=ranks)
+
+
+def golf():
+    d = espn(f"{ESPN}/site/v2/sports/golf/pga/scoreboard") or {}
+    for ev in d.get("events", [])[:1]:
+        c = ev["competitions"][0]
+        players = sorted(c.get("competitors", []), key=lambda x: x.get("order") or 999)
+        return dict(name=ev.get("name"), status=ev.get("status", {}).get("type", {}).get("detail", ""),
+                    board=[dict(pos=x.get("order"), name=x["athlete"]["displayName"], score=x.get("score")) for x in players[:30]])
+    return None
+
+
+def f1():
+    sb = espn(f"{ESPN}/site/v2/sports/racing/f1/scoreboard") or {}
+    out = {"race": None, "drivers": [], "teams": []}
+    for ev in sb.get("events", [])[:1]:
+        race = next((c for c in ev["competitions"] if c.get("type", {}).get("abbreviation") == "Race"), ev["competitions"][-1])
+        out["race"] = dict(name=ev["name"], date=ev["date"], state=race.get("status", {}).get("type", {}).get("state"),
+                           results=[dict(pos=r.get("order"), name=r["athlete"]["displayName"]) for r in sorted(race["competitors"], key=lambda r: r.get("order") or 99)][:20])
+    st = espn(f"{ESPN}/v2/sports/racing/f1/standings") or {}
+    for ch, key in zip(st.get("children", [])[:2], ("drivers", "teams")):
+        for e in ch["standings"]["entries"]:
+            s = {x["name"]: x.get("displayValue") for x in e["stats"]}
+            name = e.get("athlete", {}).get("displayName") or e.get("team", {}).get("displayName")
+            out[key].append(dict(rank=s.get("rank"), name=name, pts=s.get("championshipPts") or s.get("points")))
+    return out
+
+
+def sport():
+    with ThreadPoolExecutor(3) as ex:
+        leagues = list(ex.map(lambda l: league(*l), LEAGUES))
+    return dict(leagues=leagues, f1=f1(), atp=tennis("atp"), wta=tennis("wta"), golf=golf())
+
+
 MAANDEN = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"]
 
 
@@ -492,6 +647,14 @@ def main():
         print("weer mislukt:", e, file=sys.stderr)
         if prev.get("weather"):
             data["weather"] = prev["weather"]
+    try:
+        data["sport"] = sport()
+        if not any(l["results"] or l["table"] for l in data["sport"]["leagues"]) and prev.get("sport"):
+            data["sport"] = prev["sport"]
+    except Exception as e:
+        print("sportuitslagen mislukt:", e, file=sys.stderr)
+        if prev.get("sport"):
+            data["sport"] = prev["sport"]
     try:
         data["warnings"] = warnings()
     except Exception as e:

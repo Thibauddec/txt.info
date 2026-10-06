@@ -93,14 +93,14 @@ const DEF_F={red:[100,'Index'],green:[101,'België'],yellow:[500,'Sport'],blue:[
 /* ---------- Pagina's opbouwen uit data.json ---------- */
 let D=null,LOADERR=false,REG=new Map(),PAGES=[100];
 // [sleutel, koppenpagina, eerste artikel, max. artikels, titel, kleur]
-const SECT=[['be',101,110,80,'BELGIË','bg-r'],['wereld',200,210,80,'WERELD','bg-b'],['fin',300,310,80,'FINANCIEEL','bg-m'],['sport',500,510,80,'SPORT','bg-g'],
+const SECT=[['be',101,110,80,'BELGIË','bg-r'],['wereld',200,210,80,'WERELD','bg-b'],['fin',300,310,80,'FINANCIEEL','bg-m'],['sport',500,510,70,'SPORT','bg-g'],
  ['tech',610,611,39,'WETENSCHAP & TECH','bg-c'],['cultuur',650,651,39,'CULTUUR & MEDIA','bg-m'],['oorlog',700,710,80,'OORLOG & BRANDHAARDEN','bg-r'],['klimaat',800,810,80,'KLIMAAT','bg-g']];
 
 function koppen(items,kop,base,title,bg){const per=9,subs=Math.max(1,Math.ceil(items.length/per));
  return sub=>{const L=[bar(bg,title.length<18?title+'  •  LAATSTE NIEUWS':title),''];
   if(!items.length)L.push(C('tw',' Geen berichten op dit moment.'));
   items.slice((sub-1)*per,sub*per).forEach((it,j)=>{const i=(sub-1)*per+j;wrap(it.t,34).slice(0,2).forEach((x,k)=>L.push(k?C('tw','     '+x):' '+P('ty',base+i)+C('tw',' '+x)))});
-  return{L,subs,F:{red:[100,'Index'],green:subs>1?['sub','Meer ▸']:[base,'Eerste'],yellow:[base,'Eerste'],blue:[600,'Weer']}}}}
+  return{L,subs,F:{red:[100,'Index'],green:subs>1?['sub','Meer ▸']:[base,'Eerste'],yellow:kop===500?[590,'Uitslagen']:[base,'Eerste'],blue:[600,'Weer']}}}}
 function artikel(items,i,kop,base,title,bg){const it=items[i];const head=wrap(it.t).slice(0,4);const body=wrap(it.s);
  const avail=ROWS-1-2-head.length-2-2;const chunks=[];for(let k=0;k<body.length;k+=avail)chunks.push(body.slice(k,k+avail));if(!chunks.length)chunks.push([]);
  return sub=>{const L=[bar(bg,`${title}  ${i+1}/${items.length}`),''];head.forEach(x=>L.push(C('ty',' '+x)));L.push(C('tc',' '+when(it.time)+'  •  '+it.src));L.push('');
@@ -154,6 +154,44 @@ function build(){
   W.forEach(w=>{const c=WCOL[w.level];lines.push(`<span style="background:${c[0]};color:${c[1]}">${esc((' CODE '+c[2]+'  '+w.event.replace(/^(Gele|Oranje|Rode) waarschuwing voor /i,'')).toUpperCase().padEnd(39).slice(0,39))}</span>`);
    lines.push(C('tc',' '+period(w.onset,w.expires)));wrap(w.areas.join(', '),37).forEach(x=>lines.push(C('ty',' '+x)));wrap(w.desc,38).slice(0,6).forEach(x=>lines.push(C('tw',' '+x)));lines.push('')});
   const ch=chunk(lines,19);return{L:[bar('bg-c','WEERWAARSCHUWINGEN  •  KMI','tw'),...(ch[sub-1]||[])],subs:ch.length,F:{red:[600,'Weer'],green:ch.length>1?['sub','Meer ▸']:[601,'Vandaag'],yellow:[602,'5-daagse'],blue:[100,'Index']}}});
+ // Sportuitslagen 590-598 (ESPN)
+ const SP=D?.sport;
+ if(SP){const LG=SP.leagues||[];
+  const two=(items)=>{const out=[];for(let k=0;k<items.length;k+=2){out.push(items.slice(k,k+2).map(([l,n])=>C('tg',' '+l.padEnd(14).slice(0,14)+' ')+P('tw',n)+'  ').join(''))}return out};
+  REG.set(590,()=>{const L=[bar('bg-g','SPORTUITSLAGEN','tw')];
+   const grp=c=>LG.filter(l=>l.cat===c).map(l=>[l.short,l.page]);
+   L.push('');L.push(C('ty',' VOETBAL  CLUBS'));L.push(...two(grp('club')));
+   L.push('');L.push(C('ty',' VOETBAL  INTERLANDS'));L.push(...two(grp('interland')));
+   L.push('');L.push(C('ty',' ANDERE SPORTEN'));L.push(...two([['Tennis ATP',585],['Tennis WTA',586],['Formule 1',598],['Golf PGA',597],...grp('ander')]));
+   L.push('');L.push(C('tc',' Belgen en België in het geel.'));
+   return{L,subs:1,F:{red:[500,'Sportnieuws'],green:[591,'Pro League'],yellow:[580,'Interlands'],blue:[585,'Tennis']}}});
+  const RND=r=>(r||'').replace(/^Qualifying (\d)\w* Round$/,'Q$1').replace(/^Round (\d+)$/,'R$1').replace(/^Round of (\d+)$/,'R$1').replace('Quarterfinal','KF').replace('Semifinal','HF').replace(/^Final$/,'F');
+  [['atp',585,'TENNIS  ATP'],['wta',586,'TENNIS  WTA']].forEach(([key,pg,title])=>{const T=SP[key];if(!T)return;const subs=[];
+   (T.events||[]).forEach(ev=>{const lines=[];ev.done.slice(0,18).forEach(m=>{lines.push(C(m.be?'ty':'tw',' '+(m.p1+' - '+m.p2).slice(0,38)));lines.push(C('tc','   '+(m.score+'  '+RND(m.r)).slice(0,36)))});
+    chunk(lines,18).forEach(ch=>{if(ch.length)subs.push([C('ty',' '+ev.name.slice(0,38)),...ch])})});
+   const todo=(T.events||[]).flatMap(ev=>ev.todo.slice(0,6).map(m=>({...m,ev:ev.name})));
+   if(todo.length){const lines=todo.map(m=>{const d=new Date(m.d);return C('tc',' '+DG[d.getDay()]+' '+clock(false,d)+' ')+C(m.be?'ty':'tw',(m.p1+' - '+m.p2).slice(0,29))});chunk(lines,18).forEach(ch=>subs.push([C('ty',' PROGRAMMA'),...ch]))}
+   if(T.ranks?.length){const lines=T.ranks.map(r=>C(r.be?'ty':'tw',' '+String(r.rank).padStart(3)+'. '+String(r.name).slice(0,24).padEnd(24))+C('tc',String(Math.round(r.pts||0)).padStart(7)));chunk(lines,18).forEach(ch=>subs.push([C('ty',' WERELDRANGLIJST'),...ch]))}
+   if(!subs.length)subs.push([C('tw',' Momenteel geen toernooien.')]);
+   REG.set(pg,sub=>({L:[bar('bg-g',title,'tw'),...(subs[sub-1]||subs[0])],subs:subs.length,F:{red:[590,'Uitslagen'],green:['sub','Meer ▸'],yellow:[pg===585?586:585,pg===585?'WTA':'ATP'],blue:[500,'Sportnieuws']}}))});
+  if(SP.golf){const G=SP.golf;const lines=G.board.map(x=>C('tw',' '+String(x.pos).padStart(3)+'. '+String(x.name).slice(0,26).padEnd(26))+C('ty',String(x.score??'').padStart(6)));const ch=chunk(lines,18);
+   REG.set(597,sub=>({L:[bar('bg-g','GOLF  •  PGA TOUR','tw'),C('ty',' '+String(G.name).slice(0,38)),...ch[sub-1]],subs:ch.length,F:{red:[590,'Uitslagen'],green:['sub','Meer ▸'],yellow:[585,'Tennis'],blue:[500,'Sportnieuws']}}))}
+  const md=x=>{const d=new Date(x);return pad(d.getDate())+'/'+pad(d.getMonth()+1)};
+  const tm=(n,w)=>String(n||'').slice(0,w).padEnd(w);
+  const BE=x=>/België/.test(x.home+x.away);
+  LG.forEach((l,i)=>{const parts=[];const nxt=LG[(i+1)%LG.length].page;
+   if(l.results.length)parts.push(['UITSLAGEN',l.results.map(r=>C('tc',' '+md(r.d)+' ')+C(BE(r)?'ty':'tw',tm(r.home,13))+C(BE(r)?'tg':'ty',(' '+r.hs+'-'+r.as_+' ').padEnd(7).slice(0,7))+C(BE(r)?'ty':'tw',tm(r.away,13)))]);
+   if(l.upcoming.length)parts.push(['PROGRAMMA',l.upcoming.map(r=>{const d=new Date(r.d);return C('tc',' '+DG[d.getDay()]+' '+md(r.d)+' '+clock(false,d)+' ')+C(BE(r)?'ty':'tw',tm(r.home,12)+'-'+tm(r.away,12))})]);
+   if(l.table.length)parts.push(['KLASSEMENT',[C('tc','     Ploeg          M  W  G  V   +/-  Pt'),...l.table.map((t,k)=>C(k<4?'ty':'tw',' '+String(t.rank||k+1).padStart(2)+'. '+tm(t.team,13)+String(t.pl).padStart(3)+String(t.w).padStart(3)+String(t.d).padStart(3)+String(t.l).padStart(3)+String(t.gd).padStart(6)+String(t.pts).padStart(4)))]]);
+   const subs=[];parts.forEach(([title,lines])=>{const head=title==='KLASSEMENT'?lines.slice(0,1):[];const body=title==='KLASSEMENT'?lines.slice(1):lines;chunk(body,19-head.length).forEach(ch=>subs.push([title,[...head,...ch]]))});
+   if(!subs.length)subs.push(['GEEN GEGEVENS',[C('tw',' Momenteel geen wedstrijden.')]]);
+   REG.set(l.page,sub=>{const[title,lines]=subs[sub-1]||subs[0];return{L:[bar('bg-g',l.name+'  •  '+title,'tw'),...lines],subs:subs.length,F:{red:[590,'Uitslagen'],green:subs.length>1?['sub','Meer ▸']:[nxt,'Volgende'],yellow:[nxt,'Volgende'],blue:[590,'Uitslagen']}}})});
+  const F1=SP.f1||{};const fsubs=[];
+  if(F1.race){const d=new Date(F1.race.date);fsubs.push(['LAATSTE GP',[C('ty',' '+F1.race.name.slice(0,38)),C('tc',' '+DAGEN[d.getDay()]+' '+d.getDate()+' '+MAAND[d.getMonth()]+(F1.race.state==='post'?'  •  uitslag':'  •  nog niet gereden')),'',...F1.race.results.slice(0,16).map(r=>C(r.pos<=3?'ty':'tw',' '+String(r.pos).padStart(2)+'. '+r.name))]])}
+  if(F1.drivers?.length)fsubs.push(['WK RIJDERS',F1.drivers.slice(0,19).map(r=>C(+r.rank<=3?'ty':'tw',' '+String(r.rank).padStart(2)+'. '+tm(r.name,24))+C('tc',String(r.pts).padStart(5)+' pt'))]);
+  if(F1.teams?.length)fsubs.push(['WK CONSTRUCTEURS',F1.teams.slice(0,19).map(r=>C(+r.rank<=3?'ty':'tw',' '+String(r.rank).padStart(2)+'. '+tm(r.name,24))+C('tc',String(r.pts).padStart(5)+' pt'))]);
+  if(fsubs.length)REG.set(598,sub=>{const[title,lines]=fsubs[sub-1];return{L:[bar('bg-g','FORMULE 1  •  '+title,'tw'),...lines],subs:fsubs.length,F:{red:[590,'Uitslagen'],green:['sub','Meer ▸'],yellow:[591,'Pro League'],blue:[500,'Sportnieuws']}}});
+ }
  // Weetjes
  const WJ=D?.weetjes||[];const VD=D?.vandaag;
  REG.set(900,()=>{const all=WJ.flatMap(c=>c.items.map(t=>[c.cat,t]));const L=[bar('bg-b','WEETJES','ty'),''];
