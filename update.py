@@ -205,6 +205,72 @@ def theme_of(it):
         if rx.search(it["t"]) or len({m.lower() for m in rx.findall(it["s"] or "")}) >= 2:
             return name
     return None
+
+
+THEME_MODEL = os.environ.get("THEMA_MODEL", "claude-opus-5-5")
+THEME_PROMPT = """Je deelt nieuwskoppen in voor twee themapagina's van een teletekstdienst.
+
+oorlog: gewapende conflicten en brandhaarden in de wereld. Oorlogen, militaire aanvallen of escalaties, staakt-het-vuren
+en vredesonderhandelingen, terreuraanslagen, opstanden en gewapende groepen, militaire spanningen tussen landen,
+defensie en wapenleveringen die met zo'n conflict te maken hebben, en humanitaire gevolgen ervan.
+Niet: sport, films, games, boeken, historische herdenkingen zonder actueel conflict, beeldspraak ("prijzenoorlog").
+
+klimaat: klimaatverandering en het milieu. Opwarming, uitstoot en klimaatbeleid, extreem weer en natuurrampen,
+energietransitie (hernieuwbare energie, fossiele brandstoffen in klimaatcontext), biodiversiteit, vervuiling, natuurbehoud.
+Niet: gewone weerberichten, energieprijzen zonder klimaat- of transitiehoek, gewone bedrijfsresultaten.
+
+Een kop hoort bij hoogstens één thema; kies het thema waar het bericht vooral over gaat. De meeste koppen horen bij geen
+van beide. Geef enkel de nummers van de koppen die wel bij een thema horen."""
+
+
+def ai_themes(items):
+    """Laat Claude bepalen welke berichten over oorlog of klimaat gaan. Geeft None terug als dat niet lukt."""
+    if not os.environ.get("ANTHROPIC_API_KEY") or not items:
+        return None
+    try:
+        import anthropic
+    except ImportError:
+        print("anthropic-pakket ontbreekt, thema's via trefwoorden", file=sys.stderr)
+        return None
+    lines = "\n".join(f"{i}: {it['t'][:160]}" for i, it in enumerate(items))
+    try:
+        response = anthropic.Anthropic().messages.create(
+            model=THEME_MODEL,
+            max_tokens=16000,
+            output_config={
+                "effort": "low",
+                "format": {"type": "json_schema", "schema": {
+                    "type": "object",
+                    "properties": {"oorlog": {"type": "array", "items": {"type": "integer"}},
+                                   "klimaat": {"type": "array", "items": {"type": "integer"}}},
+                    "required": ["oorlog", "klimaat"],
+                    "additionalProperties": False}},
+            },
+            system=THEME_PROMPT,
+            messages=[{"role": "user", "content": lines}],
+        )
+    except anthropic.APIStatusError as e:
+        print(f"Claude-fout {e.status_code}: {e.message}", file=sys.stderr)
+        return None
+    except anthropic.APIConnectionError as e:
+        print("Claude onbereikbaar:", e, file=sys.stderr)
+        return None
+    if response.stop_reason != "end_turn":
+        print("Claude stopte met", response.stop_reason, file=sys.stderr)
+        return None
+    text = next((b.text for b in response.content if b.type == "text"), "")
+    data = json.loads(text)
+    out = {}
+    for theme in ("oorlog", "klimaat"):
+        for i in data[theme]:
+            if 0 <= i < len(items):
+                out.setdefault(i, theme)
+    u = response.usage
+    print(f"thema's via {THEME_MODEL}: {len(items)} koppen, oorlog {len(data['oorlog'])}, klimaat {len(data['klimaat'])}, "
+          f"tokens in {u.input_tokens} uit {u.output_tokens}")
+    return out
+
+
 PER_SOURCE = 14  # max. berichten per bron per sectie, zodat geen enkele site alles overneemt
 PRIORITY = {"VRT NWS": 9, "CNN": 8, "CNBC": 8, "Kanaal Z": 8, "Yahoo Finance": 8, "Al Jazeera": 7, "CNN Business": 7, "Sporza": 7, "De Tijd": 6}
 
@@ -238,13 +304,20 @@ def news():
 
     with ThreadPoolExecutor(16) as ex:
         results = list(ex.map(fetch, FEEDS))
+    cands, cand_keys = [], set()
     for (url, src, default, fixed), items in results:  # volgorde van FEEDS: eerste bron wint bij dubbels
         for it in items:
             k = default if fixed else classify(it["tags"], it["url"], default)
             add(k, it)
-            th = theme_of(it) if k in THEME_FROM else None
-            if th:
-                add(th, it)
+            key = re.sub(r"\W+", "", it["t"].lower())[:50]
+            if k in THEME_FROM and key not in cand_keys:
+                cand_keys.add(key)
+                cands.append(it)
+    themes = ai_themes(cands[:700])
+    if themes is None:  # geen sleutel of fout: trefwoorden
+        themes = {i: th for i, it in enumerate(cands) if (th := theme_of(it))}
+    for i, th in themes.items():
+        add(th, cands[i])
     for k in sec:
         # Om beurten per bron kiezen (nieuwste eerst), zodat elke site aan bod komt; daarna op tijd sorteren
         by_src = {}
@@ -326,6 +399,36 @@ def weather(cities, days=5):
     return out
 
 
+def warnings():
+    """Actuele KMI-weerwaarschuwingen (geel, oranje, rood) via Meteoalarm, gegroepeerd per type en kleur."""
+    d = json.loads(get("https://feeds.meteoalarm.org/api/v1/warnings/feeds-belgium"))
+    now = datetime.now(timezone.utc)
+    groups = {}
+    for w in d.get("warnings", []):
+        for info in w.get("alert", {}).get("info", []):
+            if info.get("language") != "nl-BE":
+                continue
+            params = {p.get("valueName"): p.get("value", "") for p in info.get("parameter", [])}
+            level = params.get("awareness_level", "").split(";")[1].strip().lower() if ";" in params.get("awareness_level", "") else ""
+            if level not in ("yellow", "orange", "red"):
+                continue
+            try:
+                if datetime.fromisoformat(info["expires"]) < now:
+                    continue
+            except Exception:
+                pass
+            key = (info.get("event", "Waarschuwing"), level)
+            g = groups.setdefault(key, {"event": key[0], "level": level, "areas": [], "onset": info.get("onset"),
+                                        "expires": info.get("expires"), "desc": clean(info.get("description", ""))[:400]})
+            for a in info.get("area", []):
+                if a.get("areaDesc") and a["areaDesc"] not in g["areas"]:
+                    g["areas"].append(a["areaDesc"])
+            g["onset"] = min(g["onset"] or "", info.get("onset") or "") or g["onset"]
+            g["expires"] = max(g["expires"] or "", info.get("expires") or "")
+    rank = {"red": 0, "orange": 1, "yellow": 2}
+    return sorted(groups.values(), key=lambda g: (rank[g["level"]], g["onset"] or ""))
+
+
 MAANDEN = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"]
 
 
@@ -389,6 +492,10 @@ def main():
         print("weer mislukt:", e, file=sys.stderr)
         if prev.get("weather"):
             data["weather"] = prev["weather"]
+    try:
+        data["warnings"] = warnings()
+    except Exception as e:
+        print("weerwaarschuwingen mislukt:", e, file=sys.stderr)
     data["weetjes"] = [{"cat": c, "items": items} for c, items in WEETJES]
     try:
         data["vandaag"] = vandaag()

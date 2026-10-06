@@ -131,9 +131,9 @@ function build(){
  // Weer
  const BE=D?.weather?.be||[],EU=D?.weather?.eu||[];
  if(BE.length){
-  REG.set(600,()=>{const L=[bar('bg-c','WEER  •  NU IN BELGIË','tw'),C('tc',' Plaats       Temp  Toestand      Wind')];
+  REG.set(600,()=>{const L=[bar('bg-c','WEER  •  NU IN BELGIË','tw'),warnLine(),C('tc',' Plaats       Temp  Toestand      Wind')];
    BE.forEach(c=>L.push(C('tw',' '+c.n.padEnd(12))+C('ty',(Math.round(c.now)+'°').padStart(5))+C('tw','  '+WMO(c.code).padEnd(13))+C('tc',(WIND(c.wdir)+' '+Math.round(c.wind)).padStart(6))));
-   L.push('');L.push(lead('Vandaag & morgen',601,'tw'));L.push(lead('5-daagse per stad',602,'tw'));L.push(lead('Europa',603,'tw'));L.push(lead('Zon op & onder',604,'tw'));
+   L.push('');L.push(lead('Vandaag & morgen',601,'tw'));L.push(lead('5-daagse per stad',602,'tw'));L.push(lead('Europa',603,'tw'));L.push(lead('Zon op & onder',604,'tw'));L.push(lead('Weerwaarschuwingen',605,'tw'));
    return{L,subs:1,F:{red:[100,'Index'],green:[601,'Vandaag'],yellow:[602,'5-daagse'],blue:[603,'Europa']}}});
   REG.set(601,sub=>{const di=sub-1;const d=new Date(BE[0].days[di].d);const L=[bar('bg-c',(di?'MORGEN':'VANDAAG')+'  •  '+DAGEN[d.getDay()]+' '+d.getDate()+' '+MAAND[d.getMonth()],'tw'),C('tc',' Plaats         Min  Max  Regen  Weer')];
    BE.forEach(c=>{const x=c.days[di];L.push(C('tw',' '+c.n.padEnd(13))+C('tc',(Math.round(x.min)+'°').padStart(5))+C('ty',(Math.round(x.max)+'°').padStart(5))+C('tb',(x.rain+'%').padStart(6))+C('tw','  '+WMO(x.code).slice(0,11)))});
@@ -149,6 +149,11 @@ function build(){
    return{L,subs:1,F:{red:[600,'Weer'],green:[601,'Vandaag'],yellow:[603,'Europa'],blue:[100,'Index']}}});
  }
  // Ontspanning & info
+ REG.set(605,sub=>{const W=D?.warnings||[];const lines=[];
+  if(!W.length){lines.push('',C('tg',' Geen weerwaarschuwingen van kracht.'),'',C('tw',' Het KMI waarschuwt bij gevaarlijk weer'),C('tw',' met code geel, oranje of rood.'))}
+  W.forEach(w=>{const c=WCOL[w.level];lines.push(`<span style="background:${c[0]};color:${c[1]}">${esc((' CODE '+c[2]+'  '+w.event.replace(/^(Gele|Oranje|Rode) waarschuwing voor /i,'')).toUpperCase().padEnd(39).slice(0,39))}</span>`);
+   lines.push(C('tc',' '+period(w.onset,w.expires)));wrap(w.areas.join(', '),37).forEach(x=>lines.push(C('ty',' '+x)));wrap(w.desc,38).slice(0,6).forEach(x=>lines.push(C('tw',' '+x)));lines.push('')});
+  const ch=chunk(lines,19);return{L:[bar('bg-c','WEERWAARSCHUWINGEN  •  KMI','tw'),...(ch[sub-1]||[])],subs:ch.length,F:{red:[600,'Weer'],green:ch.length>1?['sub','Meer ▸']:[601,'Vandaag'],yellow:[602,'5-daagse'],blue:[100,'Index']}}});
  // Weetjes
  const WJ=D?.weetjes||[];const VD=D?.vandaag;
  REG.set(900,()=>{const all=WJ.flatMap(c=>c.items.map(t=>[c.cat,t]));const L=[bar('bg-b','WEETJES','ty'),''];
@@ -166,12 +171,16 @@ function build(){
  PAGES=[...REG.keys()].sort((a,b)=>a-b);
 }
 const cap=s=>s.charAt(0)+s.slice(1).toLowerCase();
+const WCOL={yellow:['#cc0','#000','GEEL'],orange:['#e70','#000','ORANJE'],red:['#d00','#fff','ROOD']};
+function period(a,b){const f=x=>{const d=new Date(x);return DG[d.getDay()]+' '+clock(false,d)};return a&&b?f(a)+'  tot  '+f(b):''}
+function warnLine(){const W=D?.warnings||[];if(!W.length)return C('tg',' Geen weerwaarschuwingen');const w=W[0],c=WCOL[w.level];
+ return `<span style="background:${c[0]};color:${c[1]}" data-p="605">${esc((' ! CODE '+c[2]+': '+w.event.replace(/^(Gele|Oranje|Rode) waarschuwing voor /i,'')+(W.length>1?' (+'+(W.length-1)+')':'')).padEnd(34).slice(0,34))}</span> `+P('tw',605)}
 const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n){let c=a.slice(i,i+n);while(c.length&&!c[0])c=c.slice(1);o.push(c)}return o.length?o:[[]]};
 
 function indexPage(){const L=[...bigWord('ELENET'),bar('bg-b','TELETEKST  •  INDEX','ty')];
  [['België',101],['Wereld',200],['Financieel',300],['Beurs & aandelen',400],['Sport',500],['Weer',600],['Wetenschap & tech',610],['Cultuur & media',650],['Oorlog & brandhaarden',700],['Klimaat',800],['Weetjes',900]].forEach(([l,n])=>L.push(lead(l,n)));
  L.push('');L.push(D?C('tg',' Bijgewerkt: '+when(D.updated)):LOADERR?C('tr',' Geen verbinding met de nieuwsdienst.'):C('ty',' Gegevens laden...'));
- L.push(C('tc',' Tik een nummer of veeg links/rechts'));return{L,subs:1,F:DEF_F}}
+ L.push(D?.warnings?.length?warnLine():C('tc',' Tik een nummer of veeg links/rechts'));return{L,subs:1,F:DEF_F}}
 function horoscoop(sub){const day=Math.floor(Date.now()/864e5);const L=[bar('bg-m','HOROSCOOP  (met een knipoog)','tw'),''];
  const tekens=['Ram','Stier','Tweelingen','Kreeft','Leeuw','Maagd','Weegschaal','Schorpioen','Boogschutter','Steenbok','Waterman','Vissen'];
  const zinnen=['Een onverwacht telefoontje brengt goed nieuws.','Neem vandaag de tijd voor jezelf.','Op het werk word je gewaardeerd.','Een oude vriend duikt weer op.','Let op je uitgaven deze week.','De liefde lacht je toe.','Een kleine reis doet wonderen.','Luister naar je gevoel.','Durf eens nee te zeggen.','Een goed gesprek lucht op.'];
