@@ -92,10 +92,12 @@ const DEF_F={red:[100,'Index'],green:[101,'België'],yellow:[500,'Sport'],blue:[
 
 /* ---------- Pagina's opbouwen uit data.json ---------- */
 let D=null,LOADERR=false,REG=new Map(),PAGES=[100];
-const SECT=[['be',101,110,'BELGIË','bg-r'],['wereld',200,210,'WERELD','bg-b'],['fin',300,310,'FINANCIEEL','bg-m'],['sport',500,510,'SPORT','bg-g'],['tech',700,710,'WETENSCHAP & TECH','bg-c'],['cultuur',800,810,'CULTUUR & MEDIA','bg-m']];
+// [sleutel, koppenpagina, eerste artikel, max. artikels, titel, kleur]
+const SECT=[['be',101,110,80,'BELGIË','bg-r'],['wereld',200,210,80,'WERELD','bg-b'],['fin',300,310,80,'FINANCIEEL','bg-m'],['sport',500,510,80,'SPORT','bg-g'],
+ ['tech',610,611,39,'WETENSCHAP & TECH','bg-c'],['cultuur',650,651,39,'CULTUUR & MEDIA','bg-m'],['oorlog',700,710,80,'OORLOG & BRANDHAARDEN','bg-r'],['klimaat',800,810,80,'KLIMAAT','bg-g']];
 
 function koppen(items,kop,base,title,bg){const per=9,subs=Math.max(1,Math.ceil(items.length/per));
- return sub=>{const L=[bar(bg,title+'  •  LAATSTE NIEUWS'),''];
+ return sub=>{const L=[bar(bg,title.length<18?title+'  •  LAATSTE NIEUWS':title),''];
   if(!items.length)L.push(C('tw',' Geen berichten op dit moment.'));
   items.slice((sub-1)*per,sub*per).forEach((it,j)=>{const i=(sub-1)*per+j;wrap(it.t,34).slice(0,2).forEach((x,k)=>L.push(k?C('tw','     '+x):' '+P('ty',base+i)+C('tw',' '+x)))});
   return{L,subs,F:{red:[100,'Index'],green:subs>1?['sub','Meer ▸']:[base,'Eerste'],yellow:[base,'Eerste'],blue:[600,'Weer']}}}}
@@ -108,7 +110,7 @@ function artikel(items,i,kop,base,title,bg){const it=items[i];const head=wrap(it
 
 function build(){
  REG=new Map();REG.set(100,indexPage);
- SECT.forEach(([key,kop,base,title,bg])=>{const items=D?.news?.[key]||[];REG.set(kop,koppen(items,kop,base,title,bg));items.forEach((_,i)=>REG.set(base+i,artikel(items,i,kop,base,title,bg)))});
+ SECT.forEach(([key,kop,base,max,title,bg])=>{const items=(D?.news?.[key]||[]).slice(0,max);REG.set(kop,koppen(items,kop,base,title,bg));items.forEach((_,i)=>REG.set(base+i,artikel(items,i,kop,base,title,bg)))});
  // Beurs
  const Q=D?.quotes||[];const det=new Map();let dn=410;Q.forEach(g=>g.items.forEach(it=>{it.page=dn;det.set(dn,{g,it});dn++}));
  REG.set(400,()=>{const L=[bar('bg-y','BEURS  •  AANDELEN','tw'),''];Q.forEach((g,i)=>L.push(lead(cap(g.title),401+i,'ty')));
@@ -147,14 +149,27 @@ function build(){
    return{L,subs:1,F:{red:[600,'Weer'],green:[601,'Vandaag'],yellow:[603,'Europa'],blue:[100,'Index']}}});
  }
  // Ontspanning & info
- REG.set(900,()=>{const L=[bar('bg-b','ONTSPANNING & INFO','ty'),''];L.push(lead('Horoscoop',901,'tc'));L.push(lead('Kalender',902,'tc'));L.push(lead('Over deze teletekst',999,'tc'));return{L,subs:1,F:{red:[100,'Index'],green:[901,'Horoscoop'],yellow:[902,'Kalender'],blue:[999,'Info']}}});
- REG.set(901,horoscoop);REG.set(902,kalender);REG.set(999,info);
+ // Weetjes
+ const WJ=D?.weetjes||[];const VD=D?.vandaag;
+ REG.set(900,()=>{const all=WJ.flatMap(c=>c.items.map(t=>[c.cat,t]));const L=[bar('bg-b','WEETJES','ty'),''];
+  if(all.length){const[cat,t]=all[Math.floor(Date.now()/864e5)%all.length];L.push(C('ty',' WEETJE VAN DE DAG  ')+C('tc',cap(cat)));wrap(t).slice(0,3).forEach(x=>L.push(C('tw',' '+x)));L.push('')}
+  WJ.forEach((c,i)=>L.push(lead(cap(c.cat),901+i,'tc')));
+  if(VD){L.push(lead('Vandaag in de geschiedenis',910,'ty'));L.push(lead('Geboren op deze dag',911,'ty'))}
+  L.push(' '+P('tw',980)+C('tc',' horoscoop  ')+P('tw',990)+C('tc',' kalender  ')+P('tw',999)+C('tc',' info'));
+  return{L,subs:1,F:{red:[100,'Index'],green:[901,cap(WJ[0]?.cat||'Weetjes')],yellow:[910,'Vandaag'],blue:[980,'Horoscoop']}}});
+ WJ.forEach((c,i)=>{const lines=[];c.items.forEach((t,j)=>{wrap(t,35).forEach((x,k)=>lines.push(k?C('tw','    '+x):C('ty',' '+String(j+1).padStart(2)+' ')+C('tw',x)));lines.push('')});
+  const ch=chunk(lines,19);REG.set(901+i,sub=>({L:[bar('bg-b','WEETJES  •  '+c.cat,'ty'),...ch[sub-1]],subs:ch.length,F:{red:[900,'Weetjes'],green:ch.length>1?['sub','Meer ▸']:[901+(i+1)%WJ.length,'Volgende'],yellow:[901+(i+1)%WJ.length,'Volgende'],blue:[100,'Index']}}))});
+ if(VD){const d=new Date();[[910,'events','VANDAAG IN DE GESCHIEDENIS'],[911,'births','GEBOREN OP '+d.getDate()+' '+MAAND[d.getMonth()].toUpperCase()]].forEach(([p,k,title])=>{
+  const lines=[];(VD[k]||[]).forEach(e=>{wrap(e.t,33).slice(0,6).forEach((x,j)=>lines.push(j?C('tw','      '+x):C('ty',' '+String(e.y).padStart(4)+' ')+C('tw',x)))});
+  const ch=chunk(lines,19).slice(0,9);REG.set(p,sub=>({L:[bar('bg-b',title,'ty'),...(ch[sub-1]||[])],subs:Math.max(1,ch.length),F:{red:[900,'Weetjes'],green:['sub','Meer ▸'],yellow:[p===910?911:910,p===910?'Geboren':'Gebeurd'],blue:[100,'Index']}}))})}
+ REG.set(980,horoscoop);REG.set(990,kalender);REG.set(999,info);
  PAGES=[...REG.keys()].sort((a,b)=>a-b);
 }
 const cap=s=>s.charAt(0)+s.slice(1).toLowerCase();
+const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n){let c=a.slice(i,i+n);while(c.length&&!c[0])c=c.slice(1);o.push(c)}return o.length?o:[[]]};
 
-function indexPage(){const L=[...bigWord('ELENET'),'',bar('bg-b','TELETEKST  •  INDEX','ty')];
- [['België',101],['Wereld',200],['Financieel',300],['Beurs & aandelen',400],['Sport',500],['Weer',600],['Wetenschap & tech',700],['Cultuur & media',800],['Ontspanning & info',900]].forEach(([l,n])=>L.push(lead(l,n)));
+function indexPage(){const L=[...bigWord('ELENET'),bar('bg-b','TELETEKST  •  INDEX','ty')];
+ [['België',101],['Wereld',200],['Financieel',300],['Beurs & aandelen',400],['Sport',500],['Weer',600],['Wetenschap & tech',610],['Cultuur & media',650],['Oorlog & brandhaarden',700],['Klimaat',800],['Weetjes',900]].forEach(([l,n])=>L.push(lead(l,n)));
  L.push('');L.push(D?C('tg',' Bijgewerkt: '+when(D.updated)):LOADERR?C('tr',' Geen verbinding met de nieuwsdienst.'):C('ty',' Gegevens laden...'));
  L.push(C('tc',' Tik een nummer of veeg links/rechts'));return{L,subs:1,F:DEF_F}}
 function horoscoop(sub){const day=Math.floor(Date.now()/864e5);const L=[bar('bg-m','HOROSCOOP  (met een knipoog)','tw'),''];
@@ -162,14 +177,14 @@ function horoscoop(sub){const day=Math.floor(Date.now()/864e5);const L=[bar('bg-
  const zinnen=['Een onverwacht telefoontje brengt goed nieuws.','Neem vandaag de tijd voor jezelf.','Op het werk word je gewaardeerd.','Een oude vriend duikt weer op.','Let op je uitgaven deze week.','De liefde lacht je toe.','Een kleine reis doet wonderen.','Luister naar je gevoel.','Durf eens nee te zeggen.','Een goed gesprek lucht op.'];
  const r=rng(day+700);const z=tekens.map(()=>zinnen[r()*zinnen.length|0]);
  tekens.slice((sub-1)*4,sub*4).forEach((tk,i)=>{L.push(C('ty',' '+tk.toUpperCase()));wrap(z[(sub-1)*4+i]).forEach(x=>L.push(C('tw',' '+x)));L.push('')});
- return{L,subs:3,F:{red:[900,'Ontspanning'],green:['sub','Meer ▸'],yellow:[902,'Kalender'],blue:[100,'Index']}}}
+ return{L,subs:3,F:{red:[900,'Weetjes'],green:['sub','Meer ▸'],yellow:[990,'Kalender'],blue:[100,'Index']}}}
 function kalender(){const d=new Date();const y=d.getFullYear();const start=new Date(y,0,1);const doy=Math.floor((d-start)/864e5)+1;
  const t=new Date(Date.UTC(y,d.getMonth(),d.getDate()));const dn=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-dn);const wk=Math.ceil(((t-Date.UTC(t.getUTCFullYear(),0,1))/864e5+1)/7);
  const until=(m,dd)=>{let x=new Date(y,m,dd);if(x<new Date(y,d.getMonth(),d.getDate()))x=new Date(y+1,m,dd);return Math.round((x-new Date(y,d.getMonth(),d.getDate()))/864e5)};
  const L=[bar('bg-b','KALENDER','ty'),'',C('ty',' '+DAGEN[d.getDay()]+' '+d.getDate()+' '+MAAND[d.getMonth()]+' '+y),'',
   C('tw',' Weeknummer            ')+C('ty',String(wk)),C('tw',' Dag van het jaar      ')+C('ty',String(doy)),'',
   C('tw',' Nog te gaan tot ...'),C('tc','   Sinterklaas         ')+C('ty',until(11,6)+' dagen'),C('tc','   Kerstmis            ')+C('ty',until(11,25)+' dagen'),C('tc','   Nieuwjaar           ')+C('ty',until(0,1)+' dagen'),C('tc','   Nationale feestdag  ')+C('ty',until(6,21)+' dagen')];
- return{L,subs:1,F:{red:[900,'Ontspanning'],green:[901,'Horoscoop'],yellow:[600,'Weer'],blue:[100,'Index']}}}
+ return{L,subs:1,F:{red:[900,'Weetjes'],green:[980,'Horoscoop'],yellow:[600,'Weer'],blue:[100,'Index']}}}
 function info(){const L=[bar('bg-b','OVER DEZE TELETEKST','ty'),''];
  wrap('Een eerbetoon aan de teletekst van vroeger, gevuld met actuele gegevens. Niet verbonden aan een omroep of kabelmaatschappij.').forEach(x=>L.push(C('tw',' '+x)));L.push('');
  const srcs=D?[...new Set(Object.values(D.news).flat().map(i=>i.src))].sort((a,b)=>a.localeCompare(b)):[];

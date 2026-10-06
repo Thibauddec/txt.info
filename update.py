@@ -6,6 +6,9 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from weetjes import WEETJES
+
 UA = {"User-Agent": "Mozilla/5.0 (ElenetTeletekst)"}
 OUT = os.environ.get("OUT") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "site", "data.json")
 MAX_PER_SECTION = 80  # artikels op X10..X89
@@ -168,20 +171,55 @@ FEEDS = [
     ("https://feeds.nos.nl/nosnieuwscultuurenmedia", "NOS", "cultuur", True),
     ("https://www.nu.nl/rss/Media-en-cultuur", "NU.nl", "cultuur", True),
     ("https://focus.knack.be/feed/", "Focus Knack", "cultuur", True),
+    # Klimaat (vaste feeds; daarnaast komen klimaatberichten uit alle andere bronnen via THEMES)
+    ("https://www.theguardian.com/environment/climate-crisis/rss", "The Guardian", "klimaat", True),
+    ("https://www.nu.nl/rss/klimaat", "NU.nl", "klimaat", True),
+    ("https://insideclimatenews.org/feed/", "Inside Climate News", "klimaat", True),
+    ("https://grist.org/feed/", "Grist", "klimaat", True),
+    ("https://news.un.org/feed/subscribe/en/news/topic/climate-change/feed/rss.xml", "VN Nieuws", "klimaat", True),
+    ("https://www.theguardian.com/environment/rss", "The Guardian", "tech", True),
+    ("https://feeds.bbci.co.uk/news/science_and_environment/rss.xml", "BBC", "tech", True),
+    ("https://www.newscientist.nl/feed/", "New Scientist", "tech", True),
+    # Oorlog & brandhaarden (idem)
+    ("https://www.crisisgroup.org/rss", "Crisis Group", "oorlog", True),
+    ("https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml", "Defense News", "oorlog", True),
 ]
+# Thema's: berichten uit België, wereld, financieel en tech die over deze onderwerpen gaan, komen (ook) in het thema
+THEMES = {
+    "oorlog": re.compile(r"\b(oorlog\w*|war|wars|invasie|invasion|bombardement\w*|bombing\w*|airstrikes?|luchtaanval\w*|raketaanval\w*|missiles?"
+                         r"|drone-?aanval\w*|staakt-het-vuren|wapenstilstand|ceasefire|gijzelaar\w*|hostages?|troepen|troops|militair\w*|military"
+                         r"|leger|army|soldaten|soldiers|navo|nato|oekraïn\w*|ukrain\w*|kyiv|kiev|gaza\w*|hamas|hezbollah|houthi\w*|jemen|yemen"
+                         r"|soedan\w*|sudan\w*|syri\w*|rebellen|rebels|milities|militia\w*|genocide|frontlinie|frontline|gevechten|fighting|m23"
+                         r"|taliban|jihadist\w*|beschieting\w*|shelling|kernwapen\w*|nuclear weapons?)\b", re.I),
+    "klimaat": re.compile(r"\b(klimaat\w*|climate|opwarming|global warming|co2|uitstoot|emissies|emissions|broeikas\w*|greenhouse|hittegolf\w*"
+                          r"|heatwaves?|droogte|droughts?|overstroming\w*|floods?|flooding|bosbrand\w*|wildfires?|orkaan|orkanen|hurricanes?"
+                          r"|typhoons?|gletsjer\w*|glaciers?|zeespiegel|sea levels?|poolijs|arctic|antarcti\w*|biodiversiteit|biodiversity"
+                          r"|ontbossing|deforestation|hernieuwbare|renewables?|zonne-?energie|windmolen\w*|windturbine\w*|windparken|wind farms?"
+                          r"|fossiele|fossil fuels?|steenkool|cop\d\d|el niño|luchtvervuiling|air pollution|stikstof|energietransitie|natuurramp\w*)\b", re.I),
+}
+THEME_FROM = {"be", "wereld", "fin", "tech"}
+
+
+def theme_of(it):
+    for name, rx in THEMES.items():
+        if rx.search(it["t"]) or len({m.lower() for m in rx.findall(it["s"] or "")}) >= 2:
+            return name
+    return None
 PER_SOURCE = 14  # max. berichten per bron per sectie, zodat geen enkele site alles overneemt
 PRIORITY = {"VRT NWS": 9, "CNN": 8, "CNBC": 8, "Kanaal Z": 8, "Yahoo Finance": 8, "Al Jazeera": 7, "CNN Business": 7, "Sporza": 7, "De Tijd": 6}
 
 
 def news():
-    sec = {k: [] for k in ("be", "wereld", "fin", "sport", "tech", "cultuur")}
-    seen = set()
+    sec = {k: [] for k in ("be", "wereld", "fin", "sport", "tech", "cultuur", "oorlog", "klimaat")}
+    seen = {"main": set(), "oorlog": set(), "klimaat": set()}
     count = {}
 
     def add(k, it):
+        it = dict(it)
+        group = seen.get(k, seen["main"])
         key = re.sub(r"\W+", "", it["t"].lower())[:50]
-        if key in seen or count.get((k, it["src"]), 0) >= PER_SOURCE: return
-        seen.add(key)
+        if key in group or count.get((k, it["src"]), 0) >= PER_SOURCE: return
+        group.add(key)
         count[(k, it["src"])] = count.get((k, it["src"]), 0) + 1
         s = it["s"]
         if len(s) > 650:
@@ -202,7 +240,11 @@ def news():
         results = list(ex.map(fetch, FEEDS))
     for (url, src, default, fixed), items in results:  # volgorde van FEEDS: eerste bron wint bij dubbels
         for it in items:
-            add(default if fixed else classify(it["tags"], it["url"], default), it)
+            k = default if fixed else classify(it["tags"], it["url"], default)
+            add(k, it)
+            th = theme_of(it) if k in THEME_FROM else None
+            if th:
+                add(th, it)
     for k in sec:
         # Om beurten per bron kiezen (nieuwste eerst), zodat elke site aan bod komt; daarna op tijd sorteren
         by_src = {}
@@ -284,6 +326,43 @@ def weather(cities, days=5):
     return out
 
 
+MAANDEN = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"]
+
+
+def wiki_clean(s):
+    s = re.sub(r"<ref[^>]*/>|<ref[^>]*>.*?</ref>", "", s, flags=re.S)
+    s = re.sub(r"\{\{[^{}]*\}\}", "", s)
+    s = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", s)
+    s = re.sub(r"'{2,}", "", s)
+    s = re.sub(r"<[^>]+>", "", s)
+    return re.sub(r"\s+", " ", html.unescape(s)).strip()
+
+
+def vandaag():
+    """Gebeurtenissen en geboortes van vandaag uit de Nederlandstalige Wikipedia-dagpagina."""
+    now = datetime.now()
+    page = f"{now.day}_{MAANDEN[now.month - 1]}"
+    d = json.loads(get(f"https://nl.wikipedia.org/w/api.php?action=parse&page={page}&prop=wikitext&format=json&formatversion=2"))
+    text = d["parse"]["wikitext"]
+    out = {"events": [], "births": []}
+    section, year = None, None
+    for line in text.splitlines():
+        h = re.match(r"^==\s*([^=]+?)\s*==\s*$", line)
+        if h:
+            name = h.group(1).lower()
+            section = "events" if name.startswith("gebeurtenissen") else "births" if name.startswith("geboren") else None
+            continue
+        if not section or not line.startswith("*"):
+            continue
+        m = re.match(r"^\*+\s*(?:\[\[)?(\d{1,4})(?:\]\])?\s*[-–]\s*(.+)$", line)
+        if not m:
+            continue
+        year, rest = m.group(1), wiki_clean(m.group(2))
+        if rest and len(out[section]) < 150:
+            out[section].append({"y": int(year), "t": rest[:300]})
+    return out
+
+
 def previous():
     """Vorige data.json (van de live site) als terugval wanneer een bron even niet antwoordt."""
     url = os.environ.get("PREV_URL")
@@ -310,6 +389,13 @@ def main():
         print("weer mislukt:", e, file=sys.stderr)
         if prev.get("weather"):
             data["weather"] = prev["weather"]
+    data["weetjes"] = [{"cat": c, "items": items} for c, items in WEETJES]
+    try:
+        data["vandaag"] = vandaag()
+    except Exception as e:
+        print("wikipedia mislukt:", e, file=sys.stderr)
+        if prev.get("vandaag"):
+            data["vandaag"] = prev["vandaag"]
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     n = {k: len(v) for k, v in data["news"].items()}
