@@ -14,10 +14,20 @@ OUT = os.environ.get("OUT") or os.path.join(os.path.dirname(os.path.abspath(__fi
 MAX_PER_SECTION = 80  # artikels op X10..X89
 
 
-def get(url, timeout=20):
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+def get(url, timeout=20, tries=3):
+    """Haalt een URL op; bij een time-out of netwerkfout nog twee keer opnieuw proberen."""
+    import time
+    for n in range(tries):
+        try:
+            req = urllib.request.Request(url, headers=UA)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except urllib.error.HTTPError:
+            raise  # 404 en dergelijke: opnieuw proberen helpt niet
+        except Exception:
+            if n == tries - 1:
+                raise
+            time.sleep(2 * (n + 1))
 
 
 def clean(s):
