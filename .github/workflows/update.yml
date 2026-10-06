@@ -1,5 +1,10 @@
 name: Teletekst bijwerken
 
+# Eén site met twee versies:
+#   live  = branch main  ->  https://thibauddec.github.io/txt.info/
+#   dev   = branch dev   ->  https://thibauddec.github.io/txt.info/dev/
+# Elke run bouwt beide en zet ze samen online.
+
 on:
   # Om 5u en 13u Belgische tijd. GitHub rekent in UTC, dus er staat een tijdstip voor zomer- én wintertijd;
   # de job "tijd" laat enkel het tijdstip doorgaan dat bij de huidige Belgische tijdzone past.
@@ -10,7 +15,7 @@ on:
     - cron: "55 10 * * *"  # 12:55 zomertijd
     - cron: "55 11 * * *"  # 12:55 wintertijd
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 permissions:
@@ -58,20 +63,40 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: live
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: dev
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install anthropic
-      - name: Nieuws, koersen en weer ophalen
+      - name: Live - nieuws, koersen en weer ophalen
         env:
+          OUT: live/site/data.json
           PREV_URL: https://thibauddec.github.io/txt.info/data.json
           # Optioneel: met deze sleutel deelt Claude de berichten in voor oorlog (700) en klimaat (800).
           # Zonder sleutel gebeurt dat met trefwoorden.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python update.py
+        run: python live/update.py
+      - name: Dev - nieuws, koersen en weer ophalen
+        continue-on-error: true   # een fout in de bouwversie mag de live versie nooit tegenhouden
+        env:
+          OUT: dev/site/data.json
+          PREV_URL: https://thibauddec.github.io/txt.info/dev/data.json
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python dev/update.py
+      - name: Dev-versie in /dev/ zetten
+        run: |
+          [ -f dev/site/data.json ] || cp live/site/data.json dev/site/data.json   # terugval als dev faalde
+          rm -rf live/site/dev
+          cp -r dev/site live/site/dev
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: live/site
       - id: deploy
         uses: actions/deploy-pages@v4
