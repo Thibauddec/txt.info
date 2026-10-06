@@ -17,5 +17,5 @@ Teletekst zoals vroeger, als app voor je gsm: https://thibauddec.github.io/elene
 | 800-899 | Klimaat |
 | 900-999 | Weetjes, vandaag in de geschiedenis, horoscoop, kalender |
 
-`update.py` haalt elk half uur nieuws (VRT NWS, NOS, De Tijd, Sporza), koersen (Yahoo Finance) en weer (Open-Meteo) op
+`update.py` haalt elke dag om 5u en 13u nieuws (VRT NWS, NOS, De Tijd, Sporza), koersen (Yahoo Finance) en weer (Open-Meteo) op
 via de GitHub Action in `.github/workflows/update.yml` en publiceert `site/` op GitHub Pages.

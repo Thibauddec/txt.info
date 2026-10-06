@@ -1,8 +1,14 @@
 name: Teletekst bijwerken
 
 on:
+  # Om 5u en 13u Belgische tijd. GitHub rekent in UTC, dus er staat een tijdstip voor zomer- én wintertijd;
+  # de job "tijd" laat enkel het tijdstip doorgaan dat bij de huidige Belgische tijdzone past.
+  # Telkens 5 minuten vroeger gestart, zodat de gegevens rond het hele uur klaarstaan.
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "55 2 * * *"   # 04:55 zomertijd
+    - cron: "55 3 * * *"   # 04:55 wintertijd
+    - cron: "55 10 * * *"  # 12:55 zomertijd
+    - cron: "55 11 * * *"  # 12:55 wintertijd
   push:
     branches: [main]
   workflow_dispatch:
@@ -17,7 +23,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  tijd:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.check.outputs.go }}
+    steps:
+      - id: check
+        run: |
+          go=true
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            offset=$(TZ=Europe/Brussels date +%z)
+            case "${{ github.event.schedule }}" in
+              "55 2 * * *"|"55 10 * * *") want="+0200" ;;
+              *) want="+0100" ;;
+            esac
+            [ "$offset" = "$want" ] || go=false
+            echo "Belgische tijdzone $offset, deze run is voor $want: go=$go"
+          fi
+          echo "go=$go" >> "$GITHUB_OUTPUT"
+
   update:
+    needs: tijd
+    if: needs.tijd.outputs.go == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
