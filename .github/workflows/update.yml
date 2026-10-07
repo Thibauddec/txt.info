@@ -74,8 +74,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install anthropic
-      # Lokaal herschreven berichten (rewrite.py op de laptop, branch dev) ook voor de live versie gebruiken
-      - run: '[ -f dev/rewrites.json ] && cp dev/rewrites.json live/rewrites.json || true'
       - name: Live - nieuws, koersen en weer ophalen
         env:
           OUT: live/site/data.json

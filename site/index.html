@@ -174,10 +174,9 @@ function koppen(items,kop,base,title,bg){
 const navRow=(prev,up,next)=>' '+(prev?P('tc',prev,'◀ vorige'):C('tw','        '))+'   '+P('ty',up,'▲ koppen')+'   '+(next?P('tc',next,'volgende ▶'):'');
 function artikel(items,i,kop,base,title,bg){const it=items[i];
  return()=>{const L=[bar(bg,`${title}  ${i+1}/${items.length}`),''];wrap(it.t).forEach(x=>L.push(C('ty',' '+x)));
-  L.push(C('tc',' '+when(it.time)+'  •  '+(it.rw?'samengevat uit ':'')+it.src));if(it.also)wrap('Ook bij: '+it.also.join(', '),37).forEach(x=>L.push(C('tg',' '+x)));L.push('');
+  L.push(C('tc',' '+when(it.time)+'  •  '+it.src));if(it.also)wrap('Ook bij: '+it.also.join(', '),37).forEach(x=>L.push(C('tg',' '+x)));L.push('');
   wrap(it.s).forEach(x=>L.push(C('tw',' '+x)));if(!it.s)L.push(C('tc',' Enkel de kop is beschikbaar. Lees het volledige bericht via de link.'));L.push('');
   if(it.url)L.push(` <a class="tg" href="${esc(it.url)}" target="_blank" rel="noopener">Lees verder bij ${esc(it.src)} ▸</a>`);
-  if(it.rw)wrap('Lokaal herschreven en gecontroleerd tegen de bron. Origineel: '+it.orig,37).forEach(x=>L.push(C('tb',' '+x)));
   L.push('');L.push(navRow(i>0?base+i-1:null,kop,i+1<items.length?base+i+1:null));
   return{L,subs:1}}}
 

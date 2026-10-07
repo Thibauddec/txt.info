@@ -902,22 +902,6 @@ def economy():
     return out
 
 
-def apply_rewrites(news):
-    """Vervang tekst door de lokaal herschreven en gecontroleerde versie uit rewrites.json (zie rewrite.py)."""
-    try:
-        rw = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "rewrites.json"), encoding="utf-8"))
-    except Exception:
-        return 0
-    n = 0
-    for items in news.values():
-        for it in items:
-            r = rw.get(it.get("url") or re.sub(r"\W+", "", it["t"].lower())[:80])
-            if r:
-                it["orig"], it["t"], it["s"], it["rw"] = it["t"], r["t"], r["s"], 1
-                n += 1
-    return n
-
-
 def previous():
     """Vorige data.json (van de live site) als terugval wanneer een bron even niet antwoordt."""
     url = os.environ.get("PREV_URL")
@@ -933,7 +917,6 @@ def previous():
 def main():
     prev = previous()
     data = dict(updated=datetime.now(timezone.utc).isoformat(), news=news(), quotes=quotes())
-    print("herschreven berichten gebruikt:", apply_rewrites(data["news"]))
     for k, v in data["news"].items():
         if not v and prev.get("news", {}).get(k):
             data["news"][k] = prev["news"][k]
