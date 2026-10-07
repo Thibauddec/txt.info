@@ -152,10 +152,8 @@ FEEDS = [
     ("https://fd.nl/?rss", "FD", "fin", True),
     ("https://www.cnbc.com/id/100003114/device/rss/rss.html", "CNBC", "fin", True),
     ("https://www.cnbc.com/id/15839069/device/rss/rss.html", "CNBC", "fin", True),
-    ("https://www.cnbc.com/id/20910258/device/rss/rss.html", "CNBC", "fin", True),
     ("https://www.cnbc.com/id/10000664/device/rss/rss.html", "CNBC", "fin", True),
     ("http://rss.cnn.com/rss/money_news_international.rss", "CNN Business", "fin", True),
-    (YAHOO, "Yahoo Finance", "fin", True),
     ("https://feeds.content.dowjones.io/public/rss/mw_topstories", "MarketWatch", "fin", True),
     ("https://nl.investing.com/rss/news.rss", "Investing.com", "fin", True),
     ("https://www.investing.com/rss/news.rss", "Investing.com", "fin", True),
@@ -193,6 +191,43 @@ FEEDS = [
     # Oorlog & brandhaarden (idem)
     ("https://www.crisisgroup.org/rss", "Crisis Group", "oorlog", True),
     ("https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml", "Defense News", "oorlog", True),
+    # Macro-economie
+    ("https://www.ft.com/global-economy?format=rss", "Financial Times", "macro", True),
+    ("https://www.cnbc.com/id/20910258/device/rss/rss.html", "CNBC", "macro", True),
+    ("https://www.theguardian.com/business/economics/rss", "The Guardian", "macro", True),
+    ("https://www.federalreserve.gov/feeds/press_all.xml", "Federal Reserve", "macro", True),
+    ("https://www.ecb.europa.eu/rss/press.html", "ECB", "macro", True),
+    ("https://www.economist.com/finance-and-economics/rss.xml", "The Economist", "macro", True),
+    ("https://www.investing.com/rss/news_14.rss", "Investing.com", "macro", True),
+    ("https://nl.investing.com/rss/news_14.rss", "Investing.com", "macro", True),
+    # Verenigde Staten
+    ("http://rss.cnn.com/rss/cnn_us.rss", "CNN", "vs", True),
+    ("https://rss.nytimes.com/services/xml/rss/nyt/US.xml", "New York Times", "vs", True),
+    ("https://feeds.npr.org/1001/rss.xml", "NPR", "vs", True),
+    ("https://rss.politico.com/politics-news.xml", "Politico", "vs", True),
+    ("https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml", "BBC", "vs", True),
+    ("https://www.theguardian.com/us-news/rss", "The Guardian", "vs", True),
+    # China & Azië
+    ("https://www.scmp.com/rss/4/feed", "South China Morning Post", "china", True),
+    ("https://www.scmp.com/rss/318421/feed", "South China Morning Post", "china", True),
+    ("https://www.scmp.com/rss/3/feed", "South China Morning Post", "china", True),
+    ("https://www.theguardian.com/world/china/rss", "The Guardian", "china", True),
+    ("https://feeds.bbci.co.uk/news/world/asia/rss.xml", "BBC", "china", True),
+    ("https://asia.nikkei.com/rss/feed/nar", "Nikkei Asia", "china", True),
+    ("https://thediplomat.com/feed/", "The Diplomat", "china", True),
+    ("https://rss.nytimes.com/services/xml/rss/nyt/AsiaPacific.xml", "New York Times", "china", True),
+    # AI
+    ("https://techcrunch.com/category/artificial-intelligence/feed/", "TechCrunch", "ai", True),
+    ("https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", "The Verge", "ai", True),
+    ("https://www.technologyreview.com/topic/artificial-intelligence/feed", "MIT Technology Review", "ai", True),
+    ("https://arstechnica.com/ai/feed/", "Ars Technica", "ai", True),
+    ("https://www.wired.com/feed/tag/ai/latest/rss", "Wired", "ai", True),
+    # Extra tech
+    ("https://www.theverge.com/rss/index.xml", "The Verge", "tech", True),
+    ("https://feeds.arstechnica.com/arstechnica/index", "Ars Technica", "tech", True),
+    ("https://techcrunch.com/feed/", "TechCrunch", "tech", True),
+    ("https://www.engadget.com/rss.xml", "Engadget", "tech", True),
+    ("https://www.bright.nl/rss", "Bright", "tech", True),
 ]
 # Thema's: berichten uit België, wereld, financieel en tech die over deze onderwerpen gaan, komen (ook) in het thema
 THEMES = {
@@ -207,18 +242,35 @@ THEMES = {
                           r"|ontbossing|deforestation|hernieuwbare|renewables?|zonne-?energie|windmolen\w*|windturbine\w*|windparken|wind farms?"
                           r"|fossiele|fossil fuels?|steenkool|cop\d\d|el niño|luchtvervuiling|air pollution|stikstof|energietransitie|natuurramp\w*)\b", re.I),
 }
+THEMES_TITLE = {
+    "vs": re.compile(r"\b(Trump|Biden|Vance|Witte Huis|White House|Washington|Congres|Congress|Senaat|Senate|Republikein\w*|Republican\w*"
+                     r"|Pentagon|Amerikaans\w*|Verenigde Staten|United States|U\.S\.|VS|USA|FBI|CIA|Wall Street|New York|Californi\w*|Texas)\b"),
+    "china": re.compile(r"\b(China|Chinese?|Chinees|Chinezen|Beijing|Peking|Xi( Jinping)?|Taiwan\w*|Hongkong|Hong Kong|Shanghai|Shenzhen"
+                        r"|Tibet\w*|Oeigoer\w*|Uyghur\w*|Huawei|BYD|Alibaba|Tencent|Japan\w*|Tokio|Tokyo|Korea\w*|Seoul|Pyongyang"
+                        r"|Filipijn\w*|Philippines?|Vietnam\w*|Indonesi\w*|Asia\w*|Azi[ëe]\w*)\b"),
+    "ai": re.compile(r"\b(AI|A\.I\.|GenAI|ChatGPT|OpenAI|Anthropic|Claude|Gemini|Copilot|LLMs?|[Cc]hatbots?|DeepSeek|Mistral AI|deepfakes?"
+                     r"|(?i:artifici[ëe]le intelligentie|kunstmatige intelligentie|artificial intelligence|machine learning|taalmodel\w*))\b"),
+}
+THEMES_TITLE["macro"] = re.compile(
+    r"(?i:\b(inflatie\w*|inflation\w*|rentes?|rentevoet\w*|renteverlaging\w*|renteverhoging\w*|interest rates?|rate (cut|hike)s?|ECB|Fed|Federal Reserve"
+    r"|centrale bank\w*|central banks?|Lagarde|Powell|bbp|gdp|economische groei|economic growth|economie|economy|recessie|recession"
+    r"|werkloosheid|unemployment|jobs report|payrolls|consumentenvertrouwen|consumer (confidence|sentiment)|PMI|CPI|koopkracht"
+    r"|staatsschuld|begrotingstekort|budget deficit|obligatie\w*|bond yields?|treasur(y|ies)|handelsoorlog|trade war|tariffs?|importheffing\w*"
+    r"|invoerheffing\w*|olieprijs\w*|oil prices?|OPEC\+?|Eurostat|IMF|Wereldbank|World Bank|Nationale Bank|Planbureau)\b)")
 THEME_FROM = {"be", "wereld", "fin", "tech"}
+THEME_NAMES = ("oorlog", "klimaat", "vs", "china", "ai", "macro")
 
 
 def theme_of(it):
-    for name, rx in THEMES.items():
-        if rx.search(it["t"]) or len({m.lower() for m in rx.findall(it["s"] or "")}) >= 2:
-            return name
-    return None
+    """Alle thema's waar een bericht bij hoort (trefwoorden)."""
+    out = [name for name, rx in THEMES.items()
+           if rx.search(it["t"]) or len({m.lower() for m in rx.findall(it["s"] or "")}) >= 2]
+    out += [name for name, rx in THEMES_TITLE.items() if rx.search(it["t"])]
+    return out
 
 
 THEME_MODEL = os.environ.get("THEMA_MODEL", "claude-opus-5-5")
-THEME_PROMPT = """Je deelt nieuwskoppen in voor twee themapagina's van een teletekstdienst.
+THEME_PROMPT = """Je deelt nieuwskoppen in voor zes themapagina's van een teletekstdienst.
 
 oorlog: gewapende conflicten en brandhaarden in de wereld. Oorlogen, militaire aanvallen of escalaties, staakt-het-vuren
 en vredesonderhandelingen, terreuraanslagen, opstanden en gewapende groepen, militaire spanningen tussen landen,
@@ -229,12 +281,25 @@ klimaat: klimaatverandering en het milieu. Opwarming, uitstoot en klimaatbeleid,
 energietransitie (hernieuwbare energie, fossiele brandstoffen in klimaatcontext), biodiversiteit, vervuiling, natuurbehoud.
 Niet: gewone weerberichten, energieprijzen zonder klimaat- of transitiehoek, gewone bedrijfsresultaten.
 
-Een kop hoort bij hoogstens één thema; kies het thema waar het bericht vooral over gaat. De meeste koppen horen bij geen
-van beide. Geef enkel de nummers van de koppen die wel bij een thema horen."""
+vs: nieuws dat vooral over de Verenigde Staten gaat: Amerikaanse politiek, beleid, economie, samenleving, of
+beslissingen van de Amerikaanse regering die elders gevolgen hebben. Niet: een Amerikaans bedrijf dat enkel terloops vermeld wordt.
+
+china: nieuws dat vooral over China of de rest van Azië gaat: politiek, economie, technologie, samenleving,
+Taiwan, Hongkong, Japan, Korea, Zuidoost-Azië, India.
+
+ai: artificiële intelligentie: AI-modellen en -bedrijven, chatbots, AI-regelgeving, AI-chips en datacenters voor AI,
+gevolgen van AI voor werk en samenleving, deepfakes. Niet: gewone software of gadgets zonder AI-hoek.
+
+macro: macro-economie: rente en centrale banken (ECB, Fed), inflatie, groei en bbp, werkloosheid, consumenten- en
+producentenvertrouwen, overheidsfinanciën en obligatierentes, handel en invoerheffingen, olieprijs en grondstoffen als
+economische factor. Niet: nieuws over één bedrijf (resultaten, overnames), tenzij het de hele economie raakt.
+
+Een kop mag bij meerdere thema's horen als hij echt over beide gaat (bv. Amerikaanse chipsancties tegen China: vs en china,
+en ai als het over AI-chips gaat). De meeste koppen horen bij geen enkel thema. Geef per thema de nummers van de koppen."""
 
 
 def ai_themes(items):
-    """Laat Claude bepalen welke berichten over oorlog of klimaat gaan. Geeft None terug als dat niet lukt."""
+    """Laat Claude bepalen welke berichten bij welk thema horen. Geeft None terug als dat niet lukt."""
     if not os.environ.get("ANTHROPIC_API_KEY") or not items:
         return None
     try:
@@ -251,9 +316,8 @@ def ai_themes(items):
                 "effort": "low",
                 "format": {"type": "json_schema", "schema": {
                     "type": "object",
-                    "properties": {"oorlog": {"type": "array", "items": {"type": "integer"}},
-                                   "klimaat": {"type": "array", "items": {"type": "integer"}}},
-                    "required": ["oorlog", "klimaat"],
+                    "properties": {t: {"type": "array", "items": {"type": "integer"}} for t in THEME_NAMES},
+                    "required": list(THEME_NAMES),
                     "additionalProperties": False}},
             },
             system=THEME_PROMPT,
@@ -271,26 +335,76 @@ def ai_themes(items):
     text = next((b.text for b in response.content if b.type == "text"), "")
     data = json.loads(text)
     out = {}
-    for theme in ("oorlog", "klimaat"):
+    for theme in THEME_NAMES:
         for i in data[theme]:
-            if 0 <= i < len(items):
-                out.setdefault(i, theme)
+            if 0 <= i < len(items) and theme not in out.setdefault(i, []):
+                out[i].append(theme)
     u = response.usage
-    print(f"thema's via {THEME_MODEL}: {len(items)} koppen, oorlog {len(data['oorlog'])}, klimaat {len(data['klimaat'])}, "
-          f"tokens in {u.input_tokens} uit {u.output_tokens}")
+    print(f"thema's via {THEME_MODEL}: {len(items)} koppen, " + ", ".join(f"{t} {len(data[t])}" for t in THEME_NAMES) +
+          f", tokens in {u.input_tokens} uit {u.output_tokens}")
+    return out
+
+
+# Begint de kop hiermee, dan is het geen nieuwsbericht (liveblog, video, quiz, deals, nieuwsbrief ...)
+JUNK = re.compile(r"^(here.?s the latest|here.?s (why|how|what)\b|live[: ]|liveblog|live updates|watch[: ]|video[: ]|podcast|listen[: ]"
+                  r"|kijk[: ]|luister[: ]|the morning|the evening|briefing|newsletter|quiz|crossword|puzzle|horoscope|deals?\b|the best .* deals"
+                  r"|[ée]dito\b|editorial\b|the guardian view)"
+                  # ... of ergens in de kop: lezersbrieven en klikaas over beleggen
+                  r"|\| ?letters$|\bhistory says\b", re.I)
+# Opinie, columns en gesponsorde inhoud (op basis van de link) en klikaas over beleggen (op basis van de titel)
+OPINION_URL = re.compile(r"/(opinion|opinions|commentisfree|opinie|columns?|blogs?|sponsored|partner|advertorial|brandstudio)/", re.I)
+CLICKBAIT = re.compile(r"(^opinie\b|^column\b|^commentaar\b|^lezersbrief|^brief:|gesponsord|advertorial|in samenwerking met|"
+                       r"\bstocks? to buy\b|\bshould you buy\b|\bbuy (now|today|and hold)\b|\bmillionaire\b|passive income|"
+                       r"\bbest .{0,30}(stocks?|shares|etfs?)\b|\bmotley fool\b|\b(could|will) (soar|skyrocket|double)\b|\bretire (early|rich)\b)", re.I)
+STOP = set("de het een en van in op te voor met is dat die niet aan om bij als ook door over naar uit tot zijn wordt worden heeft"
+           " the a an and of to in on for with is are was were by at from as that this it its after over new says".split())
+
+
+def words(t):
+    return {w for w in re.findall(r"[a-zà-ÿ0-9]+", t.lower()) if len(w) > 3 and w not in STOP}
+
+
+def merge_same_story(items):
+    """Hetzelfde verhaal van meerdere bronnen wordt één bericht (met de beste samenvatting) + 'ook bij'."""
+    groups = []
+    for it in items:
+        w = words(it["t"])
+        for g in groups:
+            if w and len(w & g["w"]) / len(w | g["w"]) >= 0.45:
+                g["items"].append(it)
+                g["w"] |= w
+                break
+        else:
+            groups.append({"w": set(w), "items": [it]})
+    out = []
+    for g in groups:
+        best = max(g["items"], key=lambda i: (len(i["s"] or "") >= 200, PRIORITY.get(i["src"], 0), len(i["s"] or "")))
+        also = []
+        for i in g["items"]:
+            if i["src"] != best["src"] and i["src"] not in also:
+                also.append(i["src"])
+        best = dict(best)
+        if also:
+            best["also"] = also[:4]
+        best["time"] = max((i["time"] or "") for i in g["items"]) or best["time"]
+        out.append(best)
     return out
 
 
 PER_SOURCE = 14  # max. berichten per bron per sectie, zodat geen enkele site alles overneemt
-PRIORITY = {"VRT NWS": 9, "CNN": 8, "CNBC": 8, "Kanaal Z": 8, "Yahoo Finance": 8, "Al Jazeera": 7, "CNN Business": 7, "Sporza": 7, "De Tijd": 6}
+PRIORITY = {"VRT NWS": 9, "CNN": 8, "CNBC": 8, "Kanaal Z": 8, "Yahoo Finance": 8, "Al Jazeera": 7, "CNN Business": 7, "Sporza": 7, "De Tijd": 6,
+            "South China Morning Post": 7, "TechCrunch": 6, "MIT Technology Review": 6,
+            "Financial Times": 8, "ECB": 8, "Federal Reserve": 8, "The Economist": 7}
 
 
 def news():
-    sec = {k: [] for k in ("be", "wereld", "fin", "sport", "tech", "cultuur", "oorlog", "klimaat")}
-    seen = {"main": set(), "oorlog": set(), "klimaat": set()}
+    sec = {k: [] for k in ("be", "wereld", "fin", "sport", "tech", "cultuur") + THEME_NAMES}
+    seen = {"main": set(), **{t: set() for t in THEME_NAMES}}
     count = {}
 
     def add(k, it):
+        if JUNK.search(it["t"]) or CLICKBAIT.search(it["t"]) or OPINION_URL.search(it["url"] or "") or len(it["t"]) < 25:
+            return  # nietszeggende koppen, opinie, klikaas en gesponsorde inhoud: enkel degelijk nieuws
         it = dict(it)
         group = seen.get(k, seen["main"])
         key = re.sub(r"\W+", "", it["t"].lower())[:50]
@@ -326,12 +440,15 @@ def news():
     themes = ai_themes(cands[:700])
     if themes is None:  # geen sleutel of fout: trefwoorden
         themes = {i: th for i, it in enumerate(cands) if (th := theme_of(it))}
-    for i, th in themes.items():
-        add(th, cands[i])
+    for i, ths in themes.items():
+        for th in ths:
+            add(th, cands[i])
     for k in sec:
-        # Om beurten per bron kiezen (nieuwste eerst), zodat elke site aan bod komt; daarna op tijd sorteren
+        sec[k] = merge_same_story(sorted(sec[k], key=lambda i: i["time"] or "", reverse=True))
+        # Om beurten per bron kiezen, zodat elke site aan bod komt; berichten met een echte samenvatting eerst,
+        # daarna op tijd sorteren. Verhalen die meerdere bronnen brengen, krijgen voorrang.
         by_src = {}
-        for it in sorted(sec[k], key=lambda i: i["time"] or "", reverse=True):
+        for it in sorted(sec[k], key=lambda i: (len(i.get("also", [])) > 0, len(i["s"] or "") >= 120, i["time"] or ""), reverse=True):
             by_src.setdefault(it["src"], []).append(it)
         order = sorted(by_src, key=lambda s: -PRIORITY.get(s, 0))
         picked = []
@@ -359,20 +476,31 @@ QUOTES = [
     ("fx", "VALUTA & GRONDSTOFFEN", [("EURUSD=X", "EUR/USD"), ("EURGBP=X", "EUR/GBP"), ("EURCHF=X", "EUR/CHF"), ("EURJPY=X", "EUR/JPY"),
                                      ("GC=F", "Goud $/oz"), ("SI=F", "Zilver $/oz"), ("BZ=F", "Brent $/vat"), ("NG=F", "Aardgas $")]),
     ("crypto", "CRYPTO", [("BTC-EUR", "Bitcoin"), ("ETH-EUR", "Ethereum"), ("SOL-EUR", "Solana"), ("XRP-EUR", "XRP")]),
+    ("rente", "RENTE & VOLATILITEIT", [("^IRX", "VS 3 maanden"), ("^FVX", "VS 5 jaar"), ("^TNX", "VS 10 jaar"), ("^TYX", "VS 30 jaar"),
+                                     ("^VIX", "VIX angstindex"), ("DX-Y.NYB", "Dollarindex")]),
 ]
 
 
 def quote(sym):
+    """Koers, verschil, dag- en 52-wekenbereik, volume, handelsuren en de slotkoersen van de laatste maand."""
     try:
-        d = json.loads(get(f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.request.quote(sym)}?range=5d&interval=1d", 15))
-        m = d["chart"]["result"][0]["meta"]
+        d = json.loads(get(f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.request.quote(sym)}?range=1mo&interval=1d", 15))
+        r = d["chart"]["result"][0]
+        m = r["meta"]
         p = m.get("regularMarketPrice")
-        prev = m.get("chartPreviousClose") or m.get("previousClose")
-        closes = [c for c in (d["chart"]["result"][0]["indicators"]["quote"][0].get("close") or []) if c]
-        if len(closes) >= 2 and abs(closes[-1] - p) < 1e-6:
-            prev = closes[-2]
+        closes = [c for c in (r["indicators"]["quote"][0].get("close") or []) if c]
+        # Is de laatste slotkoers die van vandaag (= huidige koers)? Dan is de voorlaatste de vorige slot.
+        same = bool(closes) and p and abs(closes[-1] - p) <= abs(p) * 1e-4
+        prev = closes[-2] if same and len(closes) >= 2 else (closes[-1] if closes else m.get("chartPreviousClose"))
+        closes = [round(c, 4) for c in closes]
         chg = (p / prev - 1) * 100 if p and prev else None
-        return dict(p=p, chg=chg, cur=m.get("currency"), hi=m.get("regularMarketDayHigh"), lo=m.get("regularMarketDayLow"),
+        month = (p / closes[0] - 1) * 100 if p and closes else None
+        tp = (m.get("currentTradingPeriod") or {}).get("regular") or {}
+        now = datetime.now(timezone.utc).timestamp()
+        is_open = bool(tp) and tp.get("start", 0) <= now <= tp.get("end", 0)
+        return dict(p=p, chg=chg, month=month, cur=m.get("currency"), hi=m.get("regularMarketDayHigh"), lo=m.get("regularMarketDayLow"),
+                    hi52=m.get("fiftyTwoWeekHigh"), lo52=m.get("fiftyTwoWeekLow"), vol=m.get("regularMarketVolume"),
+                    name=m.get("longName") or m.get("shortName"), open=is_open, spark=closes[-22:],
                     t=iso(datetime.fromtimestamp(m.get("regularMarketTime", 0), timezone.utc)))
     except Exception as e:
         print("koers mislukt:", sym, e, file=sys.stderr)

@@ -1,5 +1,5 @@
 // Netwerk eerst (altijd verse teletekst), cache als terugval wanneer je offline bent.
-const CACHE = 'teletekst-v5';
+const CACHE = 'teletekst-v6';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', 'index.html', 'manifest.webmanifest', 'icon-192.png'])));
   self.skipWaiting();

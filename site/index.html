@@ -45,6 +45,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);overflow:hidde
 #pg .lk,#pg a{cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
 #pg [data-p]{cursor:pointer}
 #pg .row{display:inline-block;min-width:100%;border-radius:3px}
+#pg .row.cell{min-width:0}
 #pg .row:active,#pg .lk:active{background:#ffffff22}
 #pg.sl{animation:sl .16s ease-out}#pg.sr{animation:sr .16s ease-out}
 @keyframes sl{from{transform:translateX(28px);opacity:.2}}@keyframes sr{from{transform:translateX(-28px);opacity:.2}}
@@ -107,9 +108,10 @@ button:focus-visible{outline:2px solid var(--t-yellow);outline-offset:2px}
   </div>
   <h2>Meer onderwerpen</h2>
   <div class="secgrid">
-   <button data-go="300"><b>300</b><span>Financieel</span></button><button data-go="400"><b>400</b><span>Beurs</span></button><button data-go="590"><b>590</b><span>Uitslagen</span></button>
-   <button data-go="610"><b>610</b><span>Wetenschap</span></button><button data-go="650"><b>650</b><span>Cultuur</span></button><button data-go="700"><b>700</b><span>Oorlog</span></button>
-   <button data-go="800"><b>800</b><span>Klimaat</span></button><button data-go="900"><b>900</b><span>Weetjes</span></button><button data-go="999"><b>999</b><span>Info</span></button>
+   <button data-go="250"><b>250</b><span>VS</span></button><button data-go="275"><b>275</b><span>China &amp; Azië</span></button><button data-go="300"><b>300</b><span>Financieel</span></button>
+   <button data-go="400"><b>400</b><span>Beurs</span></button><button data-go="480"><b>480</b><span>Macro</span></button><button data-go="590"><b>590</b><span>Uitslagen</span></button>
+   <button data-go="610"><b>610</b><span>Wetenschap</span></button><button data-go="630"><b>630</b><span>AI</span></button><button data-go="650"><b>650</b><span>Cultuur</span></button>
+   <button data-go="700"><b>700</b><span>Oorlog</span></button><button data-go="800"><b>800</b><span>Klimaat</span></button><button data-go="900"><b>900</b><span>Weetjes</span></button>
   </div>
  </div>
 </div>
@@ -131,6 +133,7 @@ if(DEV)document.title='txt.info DEV'; // incl. kopregel
 const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 const C=(cls,s)=>`<span class="${cls}">${esc(s)}</span>`;
 const P=(cls,p,label=p)=>`<span class="${cls} lk" data-p="${p}">${esc(label)}</span>`;
+const CELL=(p,html)=>`<span class="row cell" data-p="${p}">${html}</span>`;  // aanklikbaar vak in een rij met twee kolommen
 const ROW=(p,html)=>`<span class="row" data-p="${p}">${html}</span>`;  // hele regel aanklikbaar
 const bar=(cls,s,fg='tw')=>`<span class="${cls} ${fg}">${esc(' '+s.padEnd(39).slice(0,39))}</span>`;
 const lead=(label,p,cl='tc')=>ROW(p,C(cl,' '+label+' '+'.'.repeat(Math.max(1,34-label.length))+' ')+C('tw lk',String(p)));
@@ -150,20 +153,23 @@ const DEF_F={red:[100,'Index'],green:[101,'België'],yellow:[500,'Sport'],blue:[
 /* ---------- Pagina's opbouwen uit data.json ---------- */
 let D=null,LOADERR=false,REG=new Map(),PAGES=[100];
 // [sleutel, koppenpagina, eerste artikel, max. artikels, titel, kleur]
-const SECT=[['be',101,110,80,'BELGIË','bg-r'],['wereld',200,210,80,'WERELD','bg-b'],['fin',300,310,80,'FINANCIEEL','bg-m'],['sport',500,510,70,'SPORT','bg-g'],
- ['tech',610,611,39,'WETENSCHAP & TECH','bg-c'],['cultuur',650,651,39,'CULTUUR & MEDIA','bg-m'],['oorlog',700,710,80,'OORLOG & BRANDHAARDEN','bg-r'],['klimaat',800,810,80,'KLIMAAT','bg-g']];
+const SECT=[['be',101,110,80,'BELGIË','bg-r'],['wereld',200,210,40,'WERELD','bg-b'],['vs',250,251,24,'VERENIGDE STATEN','bg-b'],['china',275,276,24,'CHINA & AZIË','bg-b'],
+ ['fin',300,310,80,'FINANCIEEL','bg-m'],['macro',480,481,19,'MACRO-ECONOMIE','bg-y'],['sport',500,510,70,'SPORT','bg-g'],
+ ['tech',610,611,19,'WETENSCHAP & TECH','bg-c'],['ai',630,631,19,'ARTIFICIËLE INTELLIGENTIE','bg-c'],['cultuur',650,651,39,'CULTUUR & MEDIA','bg-m'],
+ ['oorlog',700,710,80,'OORLOG & BRANDHAARDEN','bg-r'],['klimaat',800,810,80,'KLIMAAT','bg-g']];
 
 function koppen(items,kop,base,title,bg){
  return()=>{const L=[bar(bg,title.length<18?title+'  •  LAATSTE NIEUWS':title)];
   if(kop===500)L.push(ROW(590,C('ty',' ▸ Uitslagen, klassementen, programma')));
   L.push('');if(!items.length)L.push(C('tw',' Geen berichten op dit moment.'));
   items.forEach((it,i)=>{wrap(it.t,34).slice(0,3).forEach((x,k)=>L.push(ROW(base+i,k?C('tw','     '+x):' '+C('ty lk',String(base+i))+C('tw',' '+x))));
-   L.push(ROW(base+i,C('tc','     '+when(it.time)+'  '+it.src)))});
+   L.push(ROW(base+i,C('tc','     '+when(it.time)+'  '+it.src)+(it.also?C('tg','  +'+it.also.length+(it.also.length>1?' bronnen':' bron')):'')))});
   return{L,subs:1}}}
 const navRow=(prev,up,next)=>' '+(prev?P('tc',prev,'◀ vorige'):C('tw','        '))+'   '+P('ty',up,'▲ koppen')+'   '+(next?P('tc',next,'volgende ▶'):'');
 function artikel(items,i,kop,base,title,bg){const it=items[i];
  return()=>{const L=[bar(bg,`${title}  ${i+1}/${items.length}`),''];wrap(it.t).forEach(x=>L.push(C('ty',' '+x)));
-  L.push(C('tc',' '+when(it.time)+'  •  '+it.src));L.push('');wrap(it.s).forEach(x=>L.push(C('tw',' '+x)));L.push('');
+  L.push(C('tc',' '+when(it.time)+'  •  '+it.src));if(it.also)wrap('Ook bij: '+it.also.join(', '),37).forEach(x=>L.push(C('tg',' '+x)));L.push('');
+  wrap(it.s).forEach(x=>L.push(C('tw',' '+x)));if(!it.s)L.push(C('tc',' Enkel de kop is beschikbaar. Lees het volledige bericht via de link.'));L.push('');
   if(it.url)L.push(` <a class="tg" href="${esc(it.url)}" target="_blank" rel="noopener">Lees verder bij ${esc(it.src)} ▸</a>`);
   L.push('');L.push(navRow(i>0?base+i-1:null,kop,i+1<items.length?base+i+1:null));
   return{L,subs:1}}}
@@ -171,23 +177,40 @@ function artikel(items,i,kop,base,title,bg){const it=items[i];
 function build(){
  REG=new Map();REG.set(100,indexPage);
  SECT.forEach(([key,kop,base,max,title,bg])=>{const items=(D?.news?.[key]||[]).slice(0,max);REG.set(kop,koppen(items,kop,base,title,bg));items.forEach((_,i)=>REG.set(base+i,artikel(items,i,kop,base,title,bg)))});
- // Beurs
- const Q=D?.quotes||[];const det=new Map();let dn=410;Q.forEach(g=>g.items.forEach(it=>{it.page=dn;det.set(dn,{g,it});dn++}));
- REG.set(400,()=>{const L=[bar('bg-y','BEURS  •  AANDELEN','tw'),''];Q.forEach((g,i)=>L.push(lead(cap(g.title),401+i,'ty')));
-  const bel=Q.find(g=>g.id==='bel20');if(bel){const s=[...bel.items].filter(x=>x.chg!=null).sort((a,b)=>b.chg-a.chg);L.push('');L.push(C('tc',' BEL 20  stijgers / dalers'));
-   for(let k=0;k<3&&k<s.length;k++){const a=s[k],b=s[s.length-1-k];L.push(' '+P('tw',a.page,a.n.slice(0,12).padEnd(12))+C('tg',pct(a.chg).padStart(7))+'   '+P('tw',b.page,b.n.slice(0,12).padEnd(12))+C('tr',pct(b.chg).padStart(7)))}}
-  L.push('');L.push(C('tc',' Tik op een naam voor de details.'));return{L,subs:1,F:{red:[100,'Index'],green:[401,'Indexen'],yellow:[402,'BEL 20'],blue:[300,'Financieel']}}});
- Q.forEach((g,gi)=>{const per=10,subs=Math.max(1,Math.ceil(g.items.length/per));const dec=g.id==='fx'?4:2;
-  REG.set(401+gi,sub=>{const L=[bar('bg-y',g.title,'tw'),C('tc',' Naam                 Koers    Verschil')];
-   g.items.slice((sub-1)*per,sub*per).forEach(it=>{const d=it.p<10&&g.id!=='crypto'?dec:2;L.push(' '+P('tw',it.page,it.n.slice(0,16).padEnd(16))+C('tw',num(it.p,d).padStart(11))+C(up(it.chg),pct(it.chg).padStart(11)))});
-   L.push('');const t=g.items.map(x=>x.t).filter(Boolean).sort().pop();L.push(C('ty',' Koersen met vertraging'+(t?'  •  '+when(t):'')));
-   return{L,subs,F:{red:[400,'Beurs'],green:subs>1?['sub','Meer ▸']:[401+(gi+1)%Q.length,'Volgende'],yellow:[401+(gi+1)%Q.length,'Volgende'],blue:[100,'Index']}}})});
- det.forEach(({g,it},p)=>REG.set(p,()=>{const L=[bar('bg-y',g.title,'tw'),''];L.push(C('ty',' '+it.n.toUpperCase()));L.push(C('tc',' '+it.sym+(it.cur?'  •  '+it.cur:'')));L.push('');
-  const d=it.p<10?4:2;L.push(C('tw',' Laatste koers   ')+C('ty',num(it.p,d).padStart(14)));L.push(C('tw',' Verschil        ')+C(up(it.chg),pct(it.chg).padStart(14)));
-  L.push(C('tw',' Dagbereik laag  ')+C('tw',num(it.lo,d).padStart(14)));L.push(C('tw',' Dagbereik hoog  ')+C('tw',num(it.hi,d).padStart(14)));L.push('');
-  if(it.lo!=null&&it.hi!=null&&it.hi>it.lo){const w=30,pos=Math.round((it.p-it.lo)/(it.hi-it.lo)*(w-1));L.push(' '+C('tc','L ')+C('tb','═'.repeat(Math.max(0,pos)))+C('ty','█')+C('tb','═'.repeat(Math.max(0,w-1-pos)))+C('tc',' H'))}
-  L.push('');L.push(C('tc',' Stand van '+when(it.t)));
-  return{L,subs:1,F:{red:[401+Q.indexOf(g),'Lijst'],green:[det.has(p+1)?p+1:410,'Volgende'],yellow:[det.has(p-1)?p-1:p,'Vorige'],blue:[400,'Beurs']}}}));
+ // Beurs: marktoverzicht, lijsten met minigrafiek, detailpagina met grafiek, macro-economie op 480
+ const Q=D?.quotes||[];const det=new Map();let dn=410;Q.forEach(g=>g.items.forEach(it=>{it.page=dn;it.grp=g;det.set(dn,{g,it});dn++}));
+ const dec=(it,g)=>g.id==='fx'&&it.p<10?4:it.p<1?4:2;
+ const qrow=(it,g,nw=13)=>ROW(it.page,C('tw',' '+it.n.slice(0,nw).padEnd(nw))+C('ty',num(it.p,dec(it,g)).padStart(10))+C(up(it.chg),pct(it.chg).padStart(8))+' '+C(up(it.month),spark(it.spark,7)));
+ const grp=id=>Q.find(g=>g.id===id);
+ REG.set(400,()=>{const L=[bar('bg-y','BEURS  •  MARKTOVERZICHT','tw')];
+  const idx=grp('idx'),all=Q.filter(g=>['bel20','eu','us'].includes(g.id)).flatMap(g=>g.items.map(it=>({...it,g}))).filter(x=>x.chg!=null);
+  const bru=grp('bel20')?.items?.[0];L.push(C('tc',' Brussel '+(bru?.open?'open':'gesloten')+'  •  New York '+(grp('us')?.items?.[0]?.open?'open':'gesloten')+'  •  '+clock()));
+  L.push(C('tc',' Index          Stand     Dag   1 maand'));
+  (idx?.items||[]).slice(0,8).forEach(it=>L.push(qrow(it,idx)));
+  L.push('');L.push(C('ty',' STIJGERS')+C('tw','                ')+C('ty','DALERS'));
+  const s=[...all].sort((a,b)=>b.chg-a.chg);for(let k=0;k<4&&k<s.length;k++){const x=s[k],y=s[s.length-1-k];
+   L.push(' '+P('tw',x.page,x.n.slice(0,11).padEnd(11))+C('tg',pct(x.chg).padStart(7))+'  '+P('tw',y.page,y.n.slice(0,11).padEnd(11))+C('tr',pct(y.chg).padStart(7)))}
+  const r=grp('rente'),fx=grp('fx');const pick=(g,n)=>g?.items?.find(i=>i.n===n);const t10=pick(r,'VS 10 jaar'),vix=pick(r,'VIX angstindex'),eur=pick(fx,'EUR/USD'),brent=pick(fx,'Brent $/vat'),gold=pick(fx,'Goud $/oz');
+  L.push('');L.push(C('tw',' VS 10j ')+C('ty',(t10?num(t10.p)+'%':'-').padEnd(7))+C('tw',' VIX ')+C('ty',(vix?num(vix.p,1):'-').padEnd(6))+C('tw',' EUR/USD ')+C('ty',eur?num(eur.p,4):'-'));
+  L.push(C('tw',' Brent ')+C('ty',(brent?'$'+num(brent.p,1):'-').padEnd(8))+C('tw',' Goud ')+C('ty',gold?'$'+num(gold.p,0):'-'));
+  const M=(D?.news?.macro||[]).slice(0,3);if(M.length){L.push('');L.push(ROW(480,C('ty',' MACRO-ECONOMIE ')+C('tw lk','480')));M.forEach((it,i)=>wrap(it.t,37).slice(0,2).forEach((x,k)=>L.push(ROW(481+i,C(k?'tw':'tw',' '+(k?'  ':'• ')+x)))))}
+  L.push('');Q.forEach((g,i)=>L.push(lead(QLABEL[g.id]||cap(g.title),401+i,'ty')));
+  L.push('');L.push(C('tc',' Koersen met vertraging. Tik voor details.'));
+  return{L,subs:1}});
+ Q.forEach((g,gi)=>REG.set(401+gi,()=>{const L=[bar('bg-y',g.title,'tw'),C('tc',' Naam              Koers     Dag 1 maand')];
+  g.items.forEach(it=>L.push(qrow(it,g)));
+  const t=g.items.map(x=>x.t).filter(Boolean).sort().pop();L.push('');L.push(C('tc',' Koersen met vertraging'+(t?'  •  '+when(t):'')));
+  return{L,subs:1}}));
+ det.forEach(({g,it},p)=>REG.set(p,()=>{const d=dec(it,g);const L=[bar('bg-y',g.title,'tw'),''];
+  L.push(C('ty',' '+String(it.name||it.n).slice(0,38)));L.push(C('tc',' '+it.sym+(it.cur?'  •  '+it.cur:'')+'  •  '+(it.open?'markt open':'markt gesloten')));L.push('');
+  L.push(C('tw',' Koers        ')+C('ty',num(it.p,d).padStart(12))+'  '+C(up(it.chg),pct(it.chg)));
+  L.push(C('tw',' 1 maand      ')+C(up(it.month),pct(it.month).padStart(12)));
+  if(it.vol)L.push(C('tw',' Volume       ')+C('tw',Math.round(it.vol).toLocaleString('nl-BE').padStart(12)));L.push('');
+  L.push(...chart(it.spark,34,6).map(x=>C(up(it.month),' '+x)));L.push(C('tc',' 1 maand geleden'+' '.repeat(10)+'vandaag'));L.push('');
+  if(it.lo!=null&&it.hi>it.lo)L.push(C('tw',' Dag  ')+rangeBar(it.lo,it.hi,it.p,d));
+  if(it.lo52!=null&&it.hi52>it.lo52)L.push(C('tw',' 52w  ')+rangeBar(it.lo52,it.hi52,it.p,d));
+  L.push('');L.push(C('tc',' Stand van '+when(it.t)+'  •  vertraagd'));
+  return{L,subs:1}}));
  // Weer
  const BE=D?.weather?.be||[],EU=D?.weather?.eu||[];
  if(BE.length){
@@ -258,17 +281,25 @@ function build(){
   if(all.length){const[cat,t]=all[Math.floor(Date.now()/864e5)%all.length];L.push(C('ty',' WEETJE VAN DE DAG  ')+C('tc',cap(cat)));wrap(t).slice(0,3).forEach(x=>L.push(C('tw',' '+x)));L.push('')}
   WJ.forEach((c,i)=>L.push(lead(cap(c.cat),901+i,'tc')));
   if(VD){L.push(lead('Vandaag in de geschiedenis',910,'ty'));L.push(lead('Geboren op deze dag',911,'ty'))}
-  L.push(' '+P('tw',980)+C('tc',' horoscoop  ')+P('tw',990)+C('tc',' kalender  ')+P('tw',999)+C('tc',' info'));
-  return{L,subs:1,F:{red:[100,'Index'],green:[901,cap(WJ[0]?.cat||'Weetjes')],yellow:[910,'Vandaag'],blue:[980,'Horoscoop']}}});
+  L.push(' '+P('tw',990)+C('tc',' kalender  ')+P('tw',999)+C('tc',' info en bronnen'));
+  return{L,subs:1}});
  WJ.forEach((c,i)=>{const lines=[];c.items.forEach((t,j)=>{wrap(t,35).forEach((x,k)=>lines.push(k?C('tw','    '+x):C('ty',' '+String(j+1).padStart(2)+' ')+C('tw',x)));lines.push('')});
   const ch=chunk(lines,19);REG.set(901+i,sub=>({L:[bar('bg-b','WEETJES  •  '+c.cat,'ty'),...ch[sub-1]],subs:ch.length,F:{red:[900,'Weetjes'],green:ch.length>1?['sub','Meer ▸']:[901+(i+1)%WJ.length,'Volgende'],yellow:[901+(i+1)%WJ.length,'Volgende'],blue:[100,'Index']}}))});
  if(VD){const d=new Date();[[910,'events','VANDAAG IN DE GESCHIEDENIS'],[911,'births','GEBOREN OP '+d.getDate()+' '+MAAND[d.getMonth()].toUpperCase()]].forEach(([p,k,title])=>{
   const lines=[];(VD[k]||[]).forEach(e=>{wrap(e.t,33).slice(0,6).forEach((x,j)=>lines.push(j?C('tw','      '+x):C('ty',' '+String(e.y).padStart(4)+' ')+C('tw',x)))});
   const ch=chunk(lines,19).slice(0,9);REG.set(p,sub=>({L:[bar('bg-b',title,'ty'),...(ch[sub-1]||[])],subs:Math.max(1,ch.length),F:{red:[900,'Weetjes'],green:['sub','Meer ▸'],yellow:[p===910?911:910,p===910?'Geboren':'Gebeurd'],blue:[100,'Index']}}))})}
- REG.set(980,horoscoop);REG.set(990,kalender);REG.set(999,info);
+ REG.set(990,kalender);REG.set(999,info);
  PAGES=[...REG.keys()].sort((a,b)=>a-b);
 }
 const cap=s=>s.charAt(0)+s.slice(1).toLowerCase();
+const QLABEL={idx:'Beursindexen',bel20:'BEL 20-aandelen',eu:'Europese aandelen',us:'Amerikaanse aandelen',fx:'Valuta & grondstoffen',crypto:'Crypto',rente:'Rente & volatiliteit'};
+const BLOCKS='▁▂▃▄▅▆▇█';
+function resample(v,n){if(!v||!v.length)return[];return Array.from({length:n},(_,i)=>v[Math.min(v.length-1,Math.round(i*(v.length-1)/Math.max(1,n-1)))])}
+function spark(v,n){const r=resample(v,n);if(r.length<2)return' '.repeat(n);const lo=Math.min(...r),hi=Math.max(...r);return r.map(x=>BLOCKS[hi>lo?Math.round((x-lo)/(hi-lo)*7):3]).join('')}
+function chart(v,w,h){const r=resample(v,w);if(r.length<2)return[];const lo=Math.min(...r),hi=Math.max(...r);const lv=r.map(x=>hi>lo?(x-lo)/(hi-lo)*(h*8-1)+1:h*4);
+ const rows=[];for(let y=h-1;y>=0;y--){rows.push(lv.map(l=>{const f=l-y*8;return f>=8?'█':f<=0?' ':BLOCKS[Math.max(0,Math.ceil(f)-1)]}).join(''))}return rows}
+function rangeBar(lo,hi,p,d){const w=14,pos=Math.max(0,Math.min(w-1,Math.round((p-lo)/(hi-lo)*(w-1))));
+ return C('tw',num(lo,d).padStart(9)+' ')+C('tb','─'.repeat(pos))+C('ty','●')+C('tb','─'.repeat(w-1-pos))+C('tw',' '+num(hi,d))}
 const WCOL={yellow:['#cc0','#000','GEEL'],orange:['#e70','#000','ORANJE'],red:['#d00','#fff','ROOD']};
 function period(a,b){const f=x=>{const d=new Date(x);return DG[d.getDay()]+' '+clock(false,d)};return a&&b?f(a)+'  tot  '+f(b):''}
 function warnLine(){const W=D?.warnings||[];if(!W.length)return C('tg',' Geen weerwaarschuwingen');const w=W[0],c=WCOL[w.level];
@@ -276,7 +307,9 @@ function warnLine(){const W=D?.warnings||[];if(!W.length)return C('tg',' Geen we
 const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n){let c=a.slice(i,i+n);while(c.length&&!c[0])c=c.slice(1);o.push(c)}return o.length?o:[[]]};
 
 function indexPage(){const L=[...bigWord('TXT.INFO'),C('tg',' C:\\TXT.INFO> ')+'<span class="tg blink">_</span>',(DEV?bar('bg-m','BOUWVERSIE  •  INDEX','tw'):bar('bg-b','TELETEKST  •  INDEX','ty'))];
- [['België',101],['Wereld',200],['Financieel',300],['Beurs & aandelen',400],['Sport',500],['Weer',600],['Wetenschap & tech',610],['Cultuur & media',650],['Oorlog & brandhaarden',700],['Klimaat',800],['Weetjes',900]].forEach(([l,n])=>L.push(lead(l,n)));
+ const IX=[['België',101],['Wereld',200],['VS',250],['China & Azië',275],['Financieel',300],['Beurs',400],['Macro',480],['Sport',500],['Uitslagen',590],['Weer',600],
+  ['Wetenschap',610],['AI',630],['Cultuur',650],['Oorlog',700],['Klimaat',800],['Weetjes',900]];
+ for(let k=0;k<IX.length;k+=2)L.push(IX.slice(k,k+2).map(([l,n])=>CELL(n,C('tc',' '+l.padEnd(13).slice(0,13)+' ')+C('tw lk',String(n)))).join('  '));
  L.push('');L.push(D?C('tg',' Bijgewerkt: '+when(D.updated)):LOADERR?C('tr',' Geen verbinding met de nieuwsdienst.'):C('ty',' Gegevens laden...'));
  L.push(D?.warnings?.length?warnLine():C('tc',' Tik een onderwerp of veeg opzij'));return{L,subs:1,F:DEF_F}}
 function horoscoop(sub){const day=Math.floor(Date.now()/864e5);const L=[bar('bg-m','HOROSCOOP  (met een knipoog)','tw'),''];
@@ -291,12 +324,12 @@ function kalender(){const d=new Date();const y=d.getFullYear();const start=new D
  const L=[bar('bg-b','KALENDER','ty'),'',C('ty',' '+DAGEN[d.getDay()]+' '+d.getDate()+' '+MAAND[d.getMonth()]+' '+y),'',
   C('tw',' Weeknummer            ')+C('ty',String(wk)),C('tw',' Dag van het jaar      ')+C('ty',String(doy)),'',
   C('tw',' Nog te gaan tot ...'),C('tc','   Sinterklaas         ')+C('ty',until(11,6)+' dagen'),C('tc','   Kerstmis            ')+C('ty',until(11,25)+' dagen'),C('tc','   Nieuwjaar           ')+C('ty',until(0,1)+' dagen'),C('tc','   Nationale feestdag  ')+C('ty',until(6,21)+' dagen')];
- return{L,subs:1,F:{red:[900,'Weetjes'],green:[980,'Horoscoop'],yellow:[600,'Weer'],blue:[100,'Index']}}}
+ return{L,subs:1}}
 function info(){const L=[bar('bg-b','OVER DEZE TELETEKST','ty'),''];
  wrap('Een eerbetoon aan de teletekst van vroeger, gevuld met actuele gegevens. Niet verbonden aan een omroep of kabelmaatschappij.').forEach(x=>L.push(C('tw',' '+x)));L.push('');
  const srcs=D?[...new Set(Object.values(D.news).flat().map(i=>i.src))].sort((a,b)=>a.localeCompare(b)):[];
  L.push(C('tc',' Nieuws uit '+srcs.length+' bronnen'));wrap(srcs.join(', '),37).slice(0,8).forEach(x=>L.push(C('tw','  '+x)));
- L.push(C('tc',' Koersen: ')+C('tw','Yahoo Finance (vertraagd)'));L.push(C('tc',' Weer: ')+C('tw','Open-Meteo'));
+ L.push(C('tc',' Koersen: ')+C('tw','Yahoo Finance (vertraagd)'));L.push(C('tc',' Sport: ')+C('tw','ESPN'));L.push(C('tc',' Weer: ')+C('tw','Open-Meteo'));
  L.push('');if(D)L.push(C('tg',' Laatst bijgewerkt: '+when(D.updated)));
  return{L,subs:1,F:DEF_F}}
 
@@ -336,7 +369,7 @@ function toScreens(lines,R){
    if(bl.length){fresh();while(bl.length&&bl[0]==='')bl=bl.slice(1)}}});
  if(cur.some(l=>l&&l!==sect)||!out.length)out.push(cur);
  return out.filter(sc=>sc.some(l=>l&&!isBar(l))||out.length===1).map(sc=>{while(sc.length>1&&!sc[sc.length-1])sc.pop();return sc})}
-const NAMES={100:'Start',101:'België',200:'Wereld',300:'Financieel',400:'Beurs',500:'Sport',590:'Uitslagen',600:'Weer',610:'Wetenschap',650:'Cultuur',700:'Oorlog',800:'Klimaat',900:'Weetjes'};
+const NAMES={100:'Start',101:'België',200:'Wereld',250:'VS',275:'China',300:'Financieel',400:'Beurs',480:'Macro',500:'Sport',590:'Uitslagen',600:'Weer',610:'Wetenschap',630:'AI',650:'Cultuur',700:'Oorlog',800:'Klimaat',900:'Weetjes'};
 let SCREENS=[[]];
 function draw(sc=0,dir=0){
  let lines;
@@ -376,14 +409,14 @@ function go(p,o={}){
 }
 addEventListener('popstate',e=>{const p=e.state?.p??(+location.hash.slice(1)||100);sheet(false);go(p,{push:false,sc:e.state?.sc||0,dir:-1})});
 // Vegen: binnen een onderwerp naar het volgende/vorige artikel, anders naar het volgende onderwerp
-const SEQ=[100,101,200,300,400,500,590,600,610,650,700,800,900];
+const SEQ=[100,101,200,250,275,300,400,480,500,590,600,610,630,650,700,800,900];
 const artOf=p=>SECT.find(([k,kop,base,max])=>p>=base&&p<base+max);
 // Waar brengt "verder" of "terug" je na het laatste/eerste scherm?
 function target(d){const p=TT.page,a=artOf(p);
  if(a){const[k,kop,base,max]=a;const n=p+d,cnt=Math.min(max,(D?.news?.[k]||[]).length);
   return n>=base&&n<base+cnt?{p:n,label:d>0?'volgend artikel':'vorig artikel'}:{p:kop,label:'koppen'}}
- if(p>=410&&p<500)return REG.has(p+d)?{p:p+d,label:d>0?'volgend aandeel':'vorig aandeel'}:{p:400,label:'Beurs'};
- if(!SEQ.includes(p)){const sib=PAGES.filter(x=>Math.floor(x/100)===Math.floor(p/100)&&!SEQ.includes(x)&&!artOf(x)&&!(x>=410&&x<500));const i=sib.indexOf(p);
+ if(p>=410&&p<480)return REG.has(p+d)?{p:p+d,label:d>0?'volgend aandeel':'vorig aandeel'}:{p:400,label:'Beurs'};
+ if(!SEQ.includes(p)){const sib=PAGES.filter(x=>Math.floor(x/100)===Math.floor(p/100)&&!SEQ.includes(x)&&!artOf(x)&&!(x>=410&&x<480));const i=sib.indexOf(p);
   if(i>=0&&sib[i+d])return{p:sib[i+d],label:d>0?'volgende pagina':'vorige pagina'}}
  let i=0;SEQ.forEach((x,k)=>{if(x<=p)i=k});const t=SEQ[(i+d+SEQ.length)%SEQ.length];return{p:t,label:NAMES[t]}}
 function swipe(d){const n=SCREENS.length;
