@@ -3,7 +3,7 @@ import json, re, html, sys, os
 import urllib.request, urllib.parse
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -351,6 +351,11 @@ JUNK = re.compile(r"^(here.?s the latest|here.?s (why|how|what)\b|live[: ]|liveb
                   r"|[ée]dito\b|editorial\b|the guardian view)"
                   # ... of ergens in de kop: lezersbrieven en klikaas over beleggen
                   r"|\| ?letters$|\bhistory says\b", re.I)
+# Standaardzinnen die niets met het bericht te maken hebben
+BOILER = re.compile(r"(volg hier alle updates[^.]*\.?|lees (hier )?meer[^.]*\.?|lees verder[^.]*\.?|read more[^.]*\.?|continue reading[^.]*\.?"
+                    r"|the post .{0,200} appeared first on .{0,100}$|\(?video\)?$|\[…\]|\[\.\.\.\])", re.I)
+# Reclameartikels (branded content) van Mediahuis staan onder een algemeen /nieuws/-adres zonder rubriek
+SPONSORED = re.compile(r"^https?://(www\.)?(standaard|nieuwsblad|gva|hbvl)\.be/nieuws/", re.I)
 # Opinie, columns en gesponsorde inhoud (op basis van de link) en klikaas over beleggen (op basis van de titel)
 OPINION_URL = re.compile(r"/(opinion|opinions|commentisfree|opinie|columns?|blogs?|sponsored|partner|advertorial|brandstudio)/", re.I)
 CLICKBAIT = re.compile(r"(^opinie\b|^column\b|^commentaar\b|^lezersbrief|^brief:|gesponsord|advertorial|in samenwerking met|"
@@ -403,7 +408,7 @@ def news():
     count = {}
 
     def add(k, it):
-        if JUNK.search(it["t"]) or CLICKBAIT.search(it["t"]) or OPINION_URL.search(it["url"] or "") or len(it["t"]) < 25:
+        if JUNK.search(it["t"]) or CLICKBAIT.search(it["t"]) or OPINION_URL.search(it["url"] or "") or SPONSORED.search(it["url"] or "") or len(it["t"]) < 25:
             return  # nietszeggende koppen, opinie, klikaas en gesponsorde inhoud: enkel degelijk nieuws
         it = dict(it)
         group = seen.get(k, seen["main"])
@@ -415,7 +420,7 @@ def news():
         if len(s) > 650:
             cut = s[:650]
             s = cut[:cut.rfind(". ") + 1] if ". " in cut else cut.rsplit(" ", 1)[0] + "..."
-        it["s"] = s
+        it["s"] = BOILER.sub("", s).strip()
         it["time"] = norm_time(it["time"])
         sec[k].append({x: it[x] for x in ("t", "s", "time", "url", "src")})
 
@@ -593,7 +598,7 @@ LANDEN = {"Belgium": "België", "Netherlands": "Nederland", "France": "Frankrijk
           "Ukraine": "Oekraïne", "Russia": "Rusland", "Belarus": "Wit-Rusland", "Georgia": "Georgië", "Armenia": "Armenië", "Azerbaijan": "Azerbeidzjan",
           "Kazakhstan": "Kazachstan", "Lithuania": "Litouwen", "Latvia": "Letland", "Estonia": "Estland", "Luxembourg": "Luxemburg",
           "Cyprus": "Cyprus", "Malta": "Malta", "Moldova": "Moldavië", "Kosovo": "Kosovo", "Israel": "Israël", "Faroe Islands": "Faeröer",
-          "Morocco": "Marokko", "United States": "Verenigde Staten", "USA": "Verenigde Staten", "Brazil": "Brazilië", "Argentina": "Argentinië",
+          "Morocco": "Marokko", "Philippines": "Filipijnen", "New Zealand": "Nieuw-Zeeland", "New Caledonia": "Nieuw-Caledonië", "Papua New Guinea": "Papoea-Nieuw-Guinea", "Indonesia": "Indonesië", "Chile": "Chili", "Peru": "Peru", "Australia": "Australië", "Bosnia & Herzegovina": "Bosnië en Herzegovina", "Fiji": "Fiji", "Vanuatu": "Vanuatu", "Tonga": "Tonga", "Taiwan": "Taiwan", "China": "China", "Iran": "Iran", "Afghanistan": "Afghanistan", "Pakistan": "Pakistan", "Ecuador": "Ecuador", "Colombia": "Colombia", "Guatemala": "Guatemala", "Alaska": "Alaska", "Russia": "Rusland", "India": "India", "Myanmar": "Myanmar", "United States": "Verenigde Staten", "USA": "Verenigde Staten", "Brazil": "Brazilië", "Argentina": "Argentinië",
           "Mexico": "Mexico", "Japan": "Japan", "South Korea": "Zuid-Korea", "Egypt": "Egypte", "Tunisia": "Tunesië", "Algeria": "Algerije"}
 
 
@@ -759,6 +764,160 @@ def vandaag():
     return out
 
 
+# ---------- Open data (zoals World Monitor): natuurrampen, aardbevingen, natuurgebeurtenissen, economische cijfers ----------
+RICHTING = {"N": "N", "S": "Z", "E": "O", "W": "W"}
+
+
+def plaats_nl(place):
+    """'194 km S of Ust-Kamchatsk, Russia' -> '194 km Z van Ust-Kamchatsk, Rusland'"""
+    m = re.match(r"^(\d+) km ([NSEW]{1,3}) of (.+)$", place or "")
+    if m:
+        place = f"{m.group(1)} km {''.join(RICHTING[c] for c in m.group(2))} van {m.group(3)}"
+    place = re.sub(r"^(north|south|east|west)(ern)? of (the )?", lambda x: "ten " + {"north": "noorden", "south": "zuiden", "east": "oosten",
+                   "west": "westen"}[x.group(1).lower()] + " van ", place or "", flags=re.I)
+    place = re.sub(r"^(.+) region$", r"regio \1", place)
+    place = place.replace(" Islands", "-eilanden").replace(" Archipelago", "-archipel").replace("Mid-Atlantic Ridge", "Midden-Atlantische Rug")
+    parts = [p.strip() for p in (place or "").split(",")]
+    if parts:
+        parts[-1] = nl(parts[-1])
+    return ", ".join(parts)
+
+
+def quakes():
+    """Aardbevingen van magnitude 4,5 en meer, de laatste 24 uur (USGS)."""
+    d = json.loads(get("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson"))
+    out = []
+    for f in d.get("features", []):
+        p = f["properties"]
+        out.append(dict(mag=p.get("mag"), place=plaats_nl(p.get("place")), time=iso(datetime.fromtimestamp(p["time"] / 1000, timezone.utc)),
+                        tsunami=bool(p.get("tsunami")), alert=p.get("alert"), url=p.get("url")))
+    return sorted(out, key=lambda q: -(q["mag"] or 0))[:30]
+
+
+GDACS_TYPE = {"EQ": "Aardbeving", "TC": "Tropische cycloon", "FL": "Overstroming", "VO": "Vulkaan", "DR": "Droogte", "WF": "Bosbrand", "TS": "Tsunami"}
+GDACS_LEVEL = {"Red": "ROOD", "Orange": "ORANJE", "Green": "GROEN"}
+
+
+def disasters():
+    """Lopende natuurrampen met hun alarmniveau (GDACS, VN en Europese Commissie)."""
+    root = ET.fromstring(get("https://www.gdacs.org/xml/rss.xml"))
+    out = []
+    for item in root.iter("item"):
+        f = {el.tag.split("}")[-1]: (el.text or "").strip() for el in item}
+        if f.get("iscurrent", "true") != "true":
+            continue
+        typ = f.get("eventtype", "")
+        country = ", ".join(nl(c.strip()) for c in (f.get("country") or "").split(",") if c.strip() and c.strip() != "[unknown]")
+        try:
+            frm = iso(parsedate_to_datetime(f.get("fromdate"))) if f.get("fromdate") else None
+        except Exception:
+            frm = None
+        out.append(dict(type=GDACS_TYPE.get(typ, typ), level=f.get("alertlevel", "Green"), name=f.get("eventname") or "",
+                        country=country or "op zee / onbekend", since=frm, url=f.get("link")))
+    rank = {"Red": 0, "Orange": 1, "Green": 2}
+    return sorted(out, key=lambda x: (rank.get(x["level"], 3), -(datetime.fromisoformat(x["since"]).timestamp() if x["since"] else 0)))[:40]
+
+
+EONET_CAT = {"wildfires": "Bosbranden", "severeStorms": "Zware stormen", "volcanoes": "Vulkanen", "seaLakeIce": "Zee- en meerijs",
+             "floods": "Overstromingen", "earthquakes": "Aardbevingen", "drought": "Droogte", "dustHaze": "Stof en nevel",
+             "landslides": "Aardverschuivingen", "snow": "Sneeuw", "tempExtremes": "Extreme temperaturen", "waterColor": "Waterverkleuring"}
+
+
+def storm_nl(t):
+    for en, n in (("Super Typhoon", "Supertyfoon"), ("Typhoon", "Tyfoon"), ("Tropical Storm", "Tropische storm"), ("Tropical Depression", "Tropische depressie"),
+                  ("Hurricane", "Orkaan"), ("Cyclone", "Cycloon"), ("Prescribed Fire", "Gecontroleerde brand"), ("Wildfire", "Bosbrand"), ("Volcano", "vulkaan")):
+        t = t.replace(en, n)
+    return t
+
+
+def nature():
+    """Lopende natuurgebeurtenissen van de laatste 10 dagen (NASA EONET)."""
+    d = json.loads(get("https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=300&days=10"))
+    cats = {}
+    for ev in d.get("events", []):
+        c = ev["categories"][0]["id"]
+        last = ev["geometry"][-1]["date"] if ev.get("geometry") else None
+        cats.setdefault(c, []).append(dict(t=storm_nl(ev["title"]), d=last))
+    return [dict(cat=EONET_CAT.get(c, c), n=len(v), items=sorted(v, key=lambda x: x["d"] or "", reverse=True)[:8])
+            for c, v in sorted(cats.items(), key=lambda kv: -len(kv[1]))]
+
+
+def ecb_series(key, n=2):
+    """Laatste waarnemingen van een ECB-reeks: [(periode, waarde), ...] (oudste eerst)."""
+    d = json.loads(get(f"https://data-api.ecb.europa.eu/service/data/{key}?lastNObservations={n}&format=jsondata"))
+    series = next(iter(d["dataSets"][0]["series"].values()))
+    periods = [v["id"] for v in d["structure"]["dimensions"]["observation"][0]["values"]]
+    return [(periods[int(i)], o[0]) for i, o in sorted(series["observations"].items(), key=lambda kv: int(kv[0]))]
+
+
+def eurostat(dataset, query, n=2):
+    """Laatste n maandwaarden van een Eurostat-reeks: [(periode, waarde), ...] (oudste eerst)."""
+    d = json.loads(get(f"https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/{dataset}?{query}&lastTimePeriod={n}"))
+    idx = d["dimension"]["time"]["category"]["index"]
+    periods = sorted(idx, key=idx.get)
+    vals = [(p, d["value"].get(str(idx[p]))) for p in periods]
+    vals = [(p, v) for p, v in vals if v is not None]
+    if not vals:
+        raise ValueError("geen waarden")
+    return vals
+
+
+def eurostat_unemployment(geo):
+    d = json.loads(get("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/une_rt_m"
+                       f"?geo={geo}&s_adj=SA&age=TOTAL&sex=T&unit=PC_ACT&lastTimePeriod=1"))
+    period = next(iter(d["dimension"]["time"]["category"]["index"]))
+    return period, next(iter(d["value"].values()))
+
+
+def economy():
+    """Officiële cijfers: ECB-rentes, inflatie (HICP) per land, werkloosheid (Eurostat)."""
+    out = {"rates": [], "inflation": [], "unemployment": []}
+    for code, name in (("DFR", "Depositorente"), ("MRR_FR", "Herfinancieringsrente"), ("MLFR", "Marginale beleningsrente")):
+        try:
+            obs = ecb_series(f"FM/D.U2.EUR.4F.KR.{code}.LEV", 1)
+            out["rates"].append(dict(n=name, v=obs[-1][1], p=obs[-1][0]))
+        except Exception as e:
+            print("ECB-rente mislukt:", code, e, file=sys.stderr)
+    # Inflatie: Eurostat-dataset prc_hicp_minr (ECOICOP 2, sinds januari 2026). De oude reeksen (ECB ICP en
+    # prc_hicp_manr) stoppen in december 2025 en mogen dus niet meer gebruikt worden.
+    for geo, name in (("EA", "Eurozone"), ("BE", "België"), ("NL", "Nederland"), ("DE", "Duitsland"), ("FR", "Frankrijk")):
+        try:
+            obs = eurostat("prc_hicp_minr", f"geo={geo}&coicop18=TOTAL&unit=RCH_A", 2)
+            out["inflation"].append(dict(n=name, v=obs[-1][1], prev=obs[0][1] if len(obs) > 1 else None, p=obs[-1][0]))
+        except Exception as e:
+            print("inflatie mislukt:", geo, e, file=sys.stderr)
+    for geo, name in (("BE", "België"), ("EA21", "Eurozone"), ("NL", "Nederland"), ("DE", "Duitsland"), ("FR", "Frankrijk")):
+        try:
+            p, v = eurostat_unemployment(geo)
+            out["unemployment"].append(dict(n=name, v=v, p=p))
+        except Exception as e:
+            print("werkloosheid mislukt:", geo, e, file=sys.stderr)
+    # Bewaking: een maandcijfer van meer dan 4 maanden oud is verouderd (bv. een reeks die niet meer bijgewerkt wordt)
+    limit = (datetime.now(timezone.utc) - timedelta(days=125)).strftime("%Y-%m")
+    for k in ("inflation", "unemployment"):
+        old = [r["n"] for r in out[k] if r["p"][:7] < limit]
+        if old:
+            print(f"{k}: verouderde cijfers weggelaten voor {', '.join(old)}", file=sys.stderr)
+        out[k] = [r for r in out[k] if r["p"][:7] >= limit]
+    return out
+
+
+def apply_rewrites(news):
+    """Vervang tekst door de lokaal herschreven en gecontroleerde versie uit rewrites.json (zie rewrite.py)."""
+    try:
+        rw = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "rewrites.json"), encoding="utf-8"))
+    except Exception:
+        return 0
+    n = 0
+    for items in news.values():
+        for it in items:
+            r = rw.get(it.get("url") or re.sub(r"\W+", "", it["t"].lower())[:80])
+            if r:
+                it["orig"], it["t"], it["s"], it["rw"] = it["t"], r["t"], r["s"], 1
+                n += 1
+    return n
+
+
 def previous():
     """Vorige data.json (van de live site) als terugval wanneer een bron even niet antwoordt."""
     url = os.environ.get("PREV_URL")
@@ -774,6 +933,7 @@ def previous():
 def main():
     prev = previous()
     data = dict(updated=datetime.now(timezone.utc).isoformat(), news=news(), quotes=quotes())
+    print("herschreven berichten gebruikt:", apply_rewrites(data["news"]))
     for k, v in data["news"].items():
         if not v and prev.get("news", {}).get(k):
             data["news"][k] = prev["news"][k]
@@ -793,6 +953,13 @@ def main():
         print("sportuitslagen mislukt:", e, file=sys.stderr)
         if prev.get("sport"):
             data["sport"] = prev["sport"]
+    for key, fn in (("quakes", quakes), ("disasters", disasters), ("nature", nature), ("economy", economy)):
+        try:
+            data[key] = fn()
+        except Exception as e:
+            print(key, "mislukt:", e, file=sys.stderr)
+            if prev.get(key):
+                data[key] = prev[key]
     try:
         data["warnings"] = warnings()
     except Exception as e:

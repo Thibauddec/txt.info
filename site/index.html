@@ -115,6 +115,7 @@ button:focus-visible{outline:2px solid var(--t-yellow);outline-offset:2px}
    <button data-go="400"><b>400</b><span>Beurs</span></button><button data-go="480"><b>480</b><span>Macro</span></button><button data-go="590"><b>590</b><span>Uitslagen</span></button>
    <button data-go="610"><b>610</b><span>Wetenschap</span></button><button data-go="630"><b>630</b><span>AI</span></button><button data-go="650"><b>650</b><span>Cultuur</span></button>
    <button data-go="700"><b>700</b><span>Oorlog</span></button><button data-go="800"><b>800</b><span>Klimaat</span></button><button data-go="900"><b>900</b><span>Weetjes</span></button>
+   <button data-go="495"><b>495</b><span>Cijfers</span></button><button data-go="870"><b>870</b><span>Rampen</span></button><button data-go="871"><b>871</b><span>Aardbevingen</span></button>
   </div>
  </div>
 </div>
@@ -157,13 +158,15 @@ const DEF_F={red:[100,'Index'],green:[101,'België'],yellow:[500,'Sport'],blue:[
 let D=null,LOADERR=false,REG=new Map(),PAGES=[100];
 // [sleutel, koppenpagina, eerste artikel, max. artikels, titel, kleur]
 const SECT=[['be',101,110,80,'BELGIË','bg-r'],['wereld',200,210,40,'WERELD','bg-b'],['vs',250,251,24,'VERENIGDE STATEN','bg-b'],['china',275,276,24,'CHINA & AZIË','bg-b'],
- ['fin',300,310,80,'FINANCIEEL','bg-m'],['macro',480,481,19,'MACRO-ECONOMIE','bg-y'],['sport',500,510,70,'SPORT','bg-g'],
+ ['fin',300,310,80,'FINANCIEEL','bg-m'],['macro',480,481,14,'MACRO-ECONOMIE','bg-y'],['sport',500,510,70,'SPORT','bg-g'],
  ['tech',610,611,19,'WETENSCHAP & TECH','bg-c'],['ai',630,631,19,'ARTIFICIËLE INTELLIGENTIE','bg-c'],['cultuur',650,651,39,'CULTUUR & MEDIA','bg-m'],
- ['oorlog',700,710,80,'OORLOG & BRANDHAARDEN','bg-r'],['klimaat',800,810,80,'KLIMAAT','bg-g']];
+ ['oorlog',700,710,80,'OORLOG & BRANDHAARDEN','bg-r'],['klimaat',800,810,60,'KLIMAAT','bg-g']];
 
 function koppen(items,kop,base,title,bg){
  return()=>{const L=[bar(bg,title.length<18?title+'  •  LAATSTE NIEUWS':title)];
   if(kop===500)L.push(ROW(590,C('ty',' ▸ Uitslagen, klassementen, programma')));
+  if(kop===800){L.push(ROW(870,C('ty',' ▸ Natuurrampen nu ')+C('tw lk','870')));L.push(ROW(871,C('ty',' ▸ Aardbevingen ')+C('tw lk','871')+C('ty','  ▸ NASA ')+C('tw lk','872')))}
+  if(kop===480)L.push(ROW(495,C('ty',' ▸ Cijfers: ECB-rente, inflatie, werkloosheid ')+C('tw lk','495')));
   L.push('');if(!items.length)L.push(C('tw',' Geen berichten op dit moment.'));
   items.forEach((it,i)=>{wrap(it.t,34).slice(0,3).forEach((x,k)=>L.push(ROW(base+i,k?C('tw','     '+x):' '+C('ty lk',String(base+i))+C('tw',' '+x))));
    L.push(ROW(base+i,C('tc','     '+when(it.time)+'  '+it.src)+(it.also?C('tg','  +'+it.also.length+(it.also.length>1?' bronnen':' bron')):'')))});
@@ -171,9 +174,10 @@ function koppen(items,kop,base,title,bg){
 const navRow=(prev,up,next)=>' '+(prev?P('tc',prev,'◀ vorige'):C('tw','        '))+'   '+P('ty',up,'▲ koppen')+'   '+(next?P('tc',next,'volgende ▶'):'');
 function artikel(items,i,kop,base,title,bg){const it=items[i];
  return()=>{const L=[bar(bg,`${title}  ${i+1}/${items.length}`),''];wrap(it.t).forEach(x=>L.push(C('ty',' '+x)));
-  L.push(C('tc',' '+when(it.time)+'  •  '+it.src));if(it.also)wrap('Ook bij: '+it.also.join(', '),37).forEach(x=>L.push(C('tg',' '+x)));L.push('');
+  L.push(C('tc',' '+when(it.time)+'  •  '+(it.rw?'samengevat uit ':'')+it.src));if(it.also)wrap('Ook bij: '+it.also.join(', '),37).forEach(x=>L.push(C('tg',' '+x)));L.push('');
   wrap(it.s).forEach(x=>L.push(C('tw',' '+x)));if(!it.s)L.push(C('tc',' Enkel de kop is beschikbaar. Lees het volledige bericht via de link.'));L.push('');
   if(it.url)L.push(` <a class="tg" href="${esc(it.url)}" target="_blank" rel="noopener">Lees verder bij ${esc(it.src)} ▸</a>`);
+  if(it.rw)wrap('Lokaal herschreven en gecontroleerd tegen de bron. Origineel: '+it.orig,37).forEach(x=>L.push(C('tb',' '+x)));
   L.push('');L.push(navRow(i>0?base+i-1:null,kop,i+1<items.length?base+i+1:null));
   return{L,subs:1}}}
 
@@ -196,6 +200,8 @@ function build(){
   const r=grp('rente'),fx=grp('fx');const pick=(g,n)=>g?.items?.find(i=>i.n===n);const t10=pick(r,'VS 10 jaar'),vix=pick(r,'VIX angstindex'),eur=pick(fx,'EUR/USD'),brent=pick(fx,'Brent $/vat'),gold=pick(fx,'Goud $/oz');
   L.push('');L.push(C('tw',' VS 10j ')+C('ty',(t10?num(t10.p)+'%':'-').padEnd(7))+C('tw',' VIX ')+C('ty',(vix?num(vix.p,1):'-').padEnd(6))+C('tw',' EUR/USD ')+C('ty',eur?num(eur.p,4):'-'));
   L.push(C('tw',' Brent ')+C('ty',(brent?'$'+num(brent.p,1):'-').padEnd(8))+C('tw',' Goud ')+C('ty',gold?'$'+num(gold.p,0):'-'));
+  const dfr=D?.economy?.rates?.find(r=>r.n==='Depositorente'),hicp=D?.economy?.inflation?.find(r=>r.n==='Eurozone');
+  if(dfr||hicp)L.push(ROW(495,C('tw',' ECB ')+C('ty',(dfr?num(dfr.v)+'%':'-').padEnd(7))+C('tw',' Inflatie EZ ')+C('ty',hicp?num(hicp.v,1)+'%':'-')+C('tc','  ▸ ')+C('tw lk','495')));
   const M=(D?.news?.macro||[]).slice(0,3);if(M.length){L.push('');L.push(ROW(480,C('ty',' MACRO-ECONOMIE ')+C('tw lk','480')));M.forEach((it,i)=>wrap(it.t,37).slice(0,2).forEach((x,k)=>L.push(ROW(481+i,C(k?'tw':'tw',' '+(k?'  ':'• ')+x)))))}
   L.push('');Q.forEach((g,i)=>L.push(lead(QLABEL[g.id]||cap(g.title),401+i,'ty')));
   L.push('');L.push(C('tc',' Koersen met vertraging. Tik voor details.'));
@@ -278,6 +284,36 @@ function build(){
   if(F1.teams?.length)fsubs.push(['WK CONSTRUCTEURS',F1.teams.slice(0,19).map(r=>C(+r.rank<=3?'ty':'tw',' '+String(r.rank).padStart(2)+'. '+tm(r.name,24))+C('tc',String(r.pts).padStart(5)+' pt'))]);
   if(fsubs.length)REG.set(598,sub=>{const[title,lines]=fsubs[sub-1];return{L:[bar('bg-g','FORMULE 1  •  '+title,'tw'),...lines],subs:fsubs.length,F:{red:[590,'Uitslagen'],green:['sub','Meer ▸'],yellow:[591,'Pro League'],blue:[500,'Sportnieuws']}}});
  }
+ // Open data: natuurrampen (GDACS), aardbevingen (USGS), natuur (NASA), economische cijfers (ECB, Eurostat)
+ const LV={Red:['#d00','#fff','ROOD'],Orange:['#e70','#000','ORANJE'],Green:['#080','#fff','GROEN']};
+ const dm=x=>{if(!x)return'';const d=new Date(x);return pad(d.getDate())+'/'+pad(d.getMonth()+1)};
+ const DIS=D?.disasters||[];
+ REG.set(870,()=>{const L=[bar('bg-g','NATUURRAMPEN  •  GDACS','tw'),C('tc',' Alarmniveau van de VN en de EU'),''];
+  if(!DIS.length)L.push(C('tw',' Geen gegevens beschikbaar.'));
+  DIS.filter(x=>x.level!=='Green').concat(DIS.filter(x=>x.level==='Green').slice(0,12)).forEach(x=>{const c=LV[x.level]||LV.Green;
+   L.push(`<span style="background:${c[0]};color:${c[1]}">${esc((' '+c[2]+' ').padEnd(8))}</span>`+C('ty',' '+(x.type+(x.name&&!/^\d/.test(x.name)?' '+x.name:'')).slice(0,30)));
+   wrap(x.country,35).slice(0,2).forEach(w=>L.push(C('tw','   '+w)));L.push(C('tc','   sinds '+dm(x.since)))});
+  L.push('');L.push(C('tc',' Bron: GDACS (VN / Europese Commissie)'));return{L,subs:1}});
+ const QK=D?.quakes||[];
+ REG.set(871,()=>{const L=[bar('bg-g','AARDBEVINGEN  •  LAATSTE 24 UUR','tw'),C('tc',' Kracht  Plaats')];
+  if(!QK.length)L.push(C('tw',' Geen aardbevingen van 4,5 of meer.'));
+  QK.forEach(q=>{const w=wrap(q.place,30);L.push(C(q.mag>=6?'tr':q.mag>=5?'ty':'tw',' '+num(q.mag,1).padStart(4)+'   ')+C('tw',w[0]||'')+(q.tsunami?C('tr',' TSUNAMI'):''));
+   w.slice(1,2).forEach(x=>L.push(C('tw','        '+x)));L.push(C('tc','        '+dm(q.time)+' '+clock(false,new Date(q.time))))});
+  L.push('');L.push(C('tc',' Bron: USGS. Magnitude 4,5 en hoger.'));return{L,subs:1}});
+ const NT=D?.nature||[];
+ REG.set(872,()=>{const L=[bar('bg-g','NATUUR  •  NASA EONET','tw'),C('tc',' Lopende gebeurtenissen, laatste 10 dagen'),''];
+  if(!NT.length)L.push(C('tw',' Geen gegevens beschikbaar.'));
+  NT.forEach(c=>{L.push(C('ty',' '+c.cat.toUpperCase()+'  ('+c.n+')'));c.items.slice(0,5).forEach(i=>wrap(i.t,34).slice(0,1).forEach(x=>L.push(C('tw','  • '+x))));L.push('')});
+  L.push(C('tc',' Bron: NASA Earth Observatory (EONET)'));return{L,subs:1}});
+ const EC=D?.economy;
+ if(EC){const per=p=>{const m=/^(\d{4})-(\d{2})/.exec(p||'');return m?MAAND[+m[2]-1]+' '+m[1]:(p||'')};
+  REG.set(495,()=>{const L=[bar('bg-y','ECONOMISCHE CIJFERS','tw'),''];
+   L.push(C('ty',' ECB-RENTES'));EC.rates.forEach(r=>L.push(C('tw',' '+r.n.padEnd(26))+C('ty',(num(r.v)+'%').padStart(8))));L.push('');
+   L.push(C('ty',' INFLATIE  (op jaarbasis)')+C('tc','  '+per(EC.inflation[0]?.p)));
+   EC.inflation.forEach(r=>{const tr=r.prev==null?'':r.v>r.prev?' ▲':r.v<r.prev?' ▼':' =';L.push(C('tw',' '+r.n.padEnd(26))+C('ty',(num(r.v,1)+'%').padStart(8))+C(r.v>r.prev?'tr':'tg',tr))});L.push('');
+   L.push(C('ty',' WERKLOOSHEID')+C('tc','  '+per(EC.unemployment[0]?.p)));EC.unemployment.forEach(r=>L.push(C('tw',' '+r.n.padEnd(26))+C('ty',(num(r.v,1)+'%').padStart(8))));
+   L.push('');L.push(C('tc',' Bronnen: ECB en Eurostat (officieel)'));L.push(C('tc',' ▲▼ = t.o.v. de vorige maand'));
+   return{L,subs:1}})}
  // Weetjes
  const WJ=D?.weetjes||[];const VD=D?.vandaag;
  REG.set(900,()=>{const all=WJ.flatMap(c=>c.items.map(t=>[c.cat,t]));const L=[bar('bg-b','WEETJES','ty'),''];
@@ -332,7 +368,7 @@ function info(){const L=[bar('bg-b','OVER DEZE TELETEKST','ty'),''];
  wrap('Een eerbetoon aan de teletekst van vroeger, gevuld met actuele gegevens. Niet verbonden aan een omroep of kabelmaatschappij.').forEach(x=>L.push(C('tw',' '+x)));L.push('');
  const srcs=D?[...new Set(Object.values(D.news).flat().map(i=>i.src))].sort((a,b)=>a.localeCompare(b)):[];
  L.push(C('tc',' Nieuws uit '+srcs.length+' bronnen'));wrap(srcs.join(', '),37).slice(0,8).forEach(x=>L.push(C('tw','  '+x)));
- L.push(C('tc',' Koersen: ')+C('tw','Yahoo Finance (vertraagd)'));L.push(C('tc',' Sport: ')+C('tw','ESPN'));L.push(C('tc',' Weer: ')+C('tw','Open-Meteo'));
+ L.push(C('tc',' Koersen: ')+C('tw','Yahoo Finance (vertraagd)'));L.push(C('tc',' Sport: ')+C('tw','ESPN'));L.push(C('tc',' Data: ')+C('tw','ECB, Eurostat, USGS, GDACS, NASA'));L.push(C('tc',' Weer: ')+C('tw','Open-Meteo'));
  L.push('');if(D)L.push(C('tg',' Laatst bijgewerkt: '+when(D.updated)));
  return{L,subs:1,F:DEF_F}}
 
