@@ -39,15 +39,23 @@ body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);overflow:hidde
 .tw{color:var(--fg)}.tr{color:var(--t-red)}.tg{color:var(--t-green)}.ty{color:var(--t-yellow)}.tb{color:var(--t-blue)}.tm{color:var(--t-mag)}.tc{color:var(--t-cyan)}
 .bg-b{background:#0018c8}.bg-r{background:#c00}.bg-g{background:#080}.bg-m{background:#909}.bg-c{background:#077}.bg-y{background:#880}
 .app{position:relative}
-#scr{display:block;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 8px 24px}
+#scr{display:block;overflow:hidden;padding:10px 8px 0;touch-action:pan-x pinch-zoom}
 #pg{width:max-content;margin:0 auto}
-#pg .hdr{position:sticky;top:0;z-index:2;background:var(--bg);padding-top:10px;height:calc(var(--lh)*1em + 10px);box-shadow:0 6px 8px -4px #000}
+#pg .hdr{background:var(--bg)}
 #pg .lk,#pg a{cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
 #pg [data-p]{cursor:pointer}
 #pg .row{display:inline-block;min-width:100%;border-radius:3px}
 #pg .row:active,#pg .lk:active{background:#ffffff22}
 #pg.sl{animation:sl .16s ease-out}#pg.sr{animation:sr .16s ease-out}
 @keyframes sl{from{transform:translateX(28px);opacity:.2}}@keyframes sr{from{transform:translateX(-28px);opacity:.2}}
+.pager{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border-top:1px solid #222}
+.pager button{height:40px;border:0;border-radius:10px;background:var(--key);color:var(--fg);font:600 13px var(--f-ui);cursor:pointer;padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pager #pnext{background:#24402a;color:#bfffc6}.pager #pprev{justify-self:start;max-width:100%}.pager #pnext{justify-self:end;max-width:100%}
+.pager button.far{background:var(--key);color:var(--t-yellow)}
+.dots{display:flex;gap:6px;align-items:center;justify-content:center;min-width:40px}
+.dots i{width:8px;height:8px;border-radius:50%;background:#444;cursor:pointer}
+.dots i.on{background:var(--t-yellow);transform:scale(1.25)}
+.dots b{font:700 13px var(--f-tt);color:var(--dim)}
 .tabs{display:grid;grid-template-columns:repeat(6,1fr);background:var(--panel);border-top:1px solid #222;padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px))}
 .tabs button{border:0;background:none;color:var(--dim);padding:6px 0 4px;display:grid;gap:2px;justify-items:center;cursor:pointer;border-radius:10px}
 .tabs b{font:700 13px var(--f-tt);color:#666}
@@ -78,6 +86,11 @@ button:focus-visible{outline:2px solid var(--t-yellow);outline-offset:2px}
 
 <div class="app">
  <div id="scr" aria-live="polite"><div id="pg"></div></div>
+ <div class="pager" id="pager">
+  <button id="pprev" data-k="prev">◀ terug</button>
+  <div class="dots" id="dots" aria-label="Schermen"></div>
+  <button id="pnext" data-k="next">verder ▶</button>
+ </div>
  <nav class="tabs" id="tabs" aria-label="Onderwerpen">
   <button data-go="100"><b>100</b><span>Start</span></button>
   <button data-go="101"><b>101</b><span>België</span></button>
@@ -299,38 +312,84 @@ function header(){const now=Date.now(),searching=now<TT.searchUntil,d=new Date()
  const pnum=TT.buf?(TT.buf+'---').slice(0,3):String(TT.page);
  const roll=searching?String(100+Math.floor(now/37)%800):String(TT.page);
  return C('tw','P'+pnum.padEnd(4))+C(searching?'tg':'tw',roll.padEnd(4))+(DEV?C('tm','txt.dev  '):C('ty','txt.info '))+C('tw',`${pad(d.getDate())} ${MAAND[d.getMonth()]} `)+C('ty',clock(true))}
-function draw(y=0,dir=0){
+// Verdeel de regels in schermen die precies passen. Een nieuwsbericht (zelfde data-p) wordt nooit gesplitst;
+// vervolg-schermen krijgen opnieuw de titelbalk bovenaan, zodat je altijd weet waar je bent.
+function rowsFit(){const fs=parseFloat(pgEl.style.fontSize)||15,lh=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lh'))||1.3;
+ return Math.max(8,Math.floor((scr.clientHeight-10)/(fs*lh))-1)}  // -1 voor de kopregel
+function toScreens(lines,R){
+ const isBar=l=>/^<span class="bg-/.test(l||'');
+ const key=l=>{const m=/^<span class="row" data-p="(\d+)"/.exec(l||'');return m?m[1]:null};
+ // Blokken: een nieuwsbericht (zelfde data-p) blijft samen; een titelbalk plakt aan de regels die erop volgen
+ const blocks=[];
+ lines.forEach(l=>{const k=key(l),last=blocks[blocks.length-1];
+  if(last&&((k&&last.k===k)||(last.glue&&l!=='')))  {last.l.push(l);if(last.glue)last.glue--;if(k)last.k=k}
+  else blocks.push({k,l:[l],glue:isBar(l)?2:0,bar:isBar(l)?l:null})});
+ const out=[];let cur=[],sect=null;
+ const fresh=()=>{out.push(cur);cur=sect?[sect]:[]};
+ blocks.forEach(b=>{
+  if(b.bar)sect=b.bar;                                   // titel van de sectie waarin we nu zitten
+  if(b.l.length===1&&!b.l[0]&&cur.length<=(sect&&cur[0]===sect?1:0))return;  // geen lege regel bovenaan
+  let bl=b.l;
+  if(b.bar&&cur.length&&cur[cur.length-1]!==undefined&&bl.length>R-cur.length){fresh();if(cur[0]===b.bar)cur=[]}
+  while(bl.length){const room=R-cur.length;
+   if(bl.length<=room||cur.length<=(cur[0]===sect?1:0)){const take=bl.slice(0,Math.max(1,room));cur.push(...take);bl=bl.slice(take.length)}
+   if(bl.length){fresh();while(bl.length&&bl[0]==='')bl=bl.slice(1)}}});
+ if(cur.some(l=>l&&l!==sect)||!out.length)out.push(cur);
+ return out.filter(sc=>sc.some(l=>l&&!isBar(l))||out.length===1).map(sc=>{while(sc.length>1&&!sc[sc.length-1])sc.pop();return sc})}
+const NAMES={100:'Start',101:'België',200:'Wereld',300:'Financieel',400:'Beurs',500:'Sport',590:'Uitslagen',600:'Weer',610:'Wetenschap',650:'Cultuur',700:'Oorlog',800:'Klimaat',900:'Weetjes'};
+let SCREENS=[[]];
+function draw(sc=0,dir=0){
  let lines;
  if(Date.now()<TT.searchUntil)lines=[];
  else{const fn=REG.get(TT.page);
   lines=fn?pageLines(fn):['','',C('tr',' Pagina '+TT.page+' bestaat niet.'),'',C(D||LOADERR?'tw':'ty',D||LOADERR?' Ga terug naar de start met 100.':' Gegevens laden...')]}
- pgEl.innerHTML=`<div class="ln hdr">${header()}</div>`+lines.map(l=>`<div class="ln">${l||' '}</div>`).join('');
- scr.scrollTop=y;
- pgEl.classList.remove('sl','sr');if(dir){void pgEl.offsetWidth;pgEl.classList.add(dir>0?'sl':'sr')}
+ // Past een pagina bijna (tot 35% te lang)? Dan iets kleinere letters i.p.v. een bijna leeg tweede scherm
+ pgEl.style.fontSize=BASEFS+'px';let R=rowsFit();
+ if(lines.length>R&&lines.length<=R*1.35){const lh=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lh'))||1.3;
+  const fs=Math.floor((scr.clientHeight-10)/((lines.length+1)*lh));if(fs>=11){pgEl.style.fontSize=fs+'px';R=lines.length}}
+ SCREENS=toScreens(lines,R);
+ TT.sc=Math.max(0,Math.min(sc,SCREENS.length-1));
+ show(dir);
  const p=TT.page,tab=p===100?100:p<200?101:p<300?200:p>=500&&p<600?500:p>=600&&p<610?600:0;
  document.querySelectorAll('#tabs [data-go]').forEach(b=>b.classList.toggle('on',+b.dataset.go===tab));
  $('#tmore').classList.toggle('on',!tab);
 }
-function tick(){const h=pgEl.firstElementChild;if(h)h.innerHTML=header()}
+function show(dir=0){
+ const n=SCREENS.length,sc=TT.sc;
+ pgEl.innerHTML=`<div class="ln hdr">${header()+(n>1?C('tc',' '+(sc+1)+'/'+n):'')}</div>`+SCREENS[sc].map(l=>`<div class="ln">${l||' '}</div>`).join('');
+ pgEl.classList.remove('sl','sr');if(dir){void pgEl.offsetWidth;pgEl.classList.add(dir>0?'sl':'sr')}
+ $('#dots').innerHTML=n<=1?'':n<=9?SCREENS.map((_,i)=>`<i data-sc="${i}" class="${i===sc?'on':''}"></i>`).join(''):`<b>${sc+1} / ${n}</b>`;
+ const nx=sc<n-1?null:target(1),pv=sc>0?null:target(-1);
+ const bn=$('#pnext'),bp=$('#pprev');
+ bn.textContent=nx?nx.label+' ▶':'verder ▶';bn.classList.toggle('far',!!nx);
+ bp.textContent=pv?'◀ '+pv.label:'◀ terug';bp.classList.toggle('far',!!pv);
+ if(history.state&&history.state.p===TT.page)history.replaceState({p:TT.page,sc},'','#'+TT.page);
+}
+function tick(){const h=pgEl.firstElementChild;if(h)h.innerHTML=header()+(SCREENS.length>1?C('tc',' '+(TT.sc+1)+'/'+SCREENS.length):'')}
 // Navigeren met geschiedenis: de terugknop van de gsm brengt je naar de vorige pagina, op dezelfde plek
 function go(p,o={}){
- if(o.push!==false&&p!==TT.page){history.replaceState({p:TT.page,y:scr.scrollTop},'','#'+TT.page);history.pushState({p,y:0},'','#'+p)}
+ if(o.push!==false&&p!==TT.page){history.replaceState({p:TT.page,sc:TT.sc||0},'','#'+TT.page);history.pushState({p,sc:0},'','#'+p)}
  TT.page=p;TT.buf='';store.set('elenet-ttx-page',p);
  TT.searchUntil=o.search?Date.now()+300:0;
- draw(o.y||0,o.dir||0);
+ draw(o.sc||0,o.dir||0);
  if(o.search)setTimeout(()=>draw(0,0),320);
 }
-addEventListener('popstate',e=>{const p=e.state?.p??(+location.hash.slice(1)||100);sheet(false);go(p,{push:false,y:e.state?.y||0,dir:-1})});
+addEventListener('popstate',e=>{const p=e.state?.p??(+location.hash.slice(1)||100);sheet(false);go(p,{push:false,sc:e.state?.sc||0,dir:-1})});
 // Vegen: binnen een onderwerp naar het volgende/vorige artikel, anders naar het volgende onderwerp
 const SEQ=[100,101,200,300,400,500,590,600,610,650,700,800,900];
 const artOf=p=>SECT.find(([k,kop,base,max])=>p>=base&&p<base+max);
-function swipe(d){const p=TT.page;const a=artOf(p);
- if(a){const[k,kop,base,max]=a;const n=p+d,cnt=Math.min(max,(D?.news?.[k]||[]).length);return go(n>=base&&n<base+cnt?n:kop,{dir:d})}
- if(p>=410&&p<500)return go(REG.has(p+d)?p+d:400,{dir:d});
+// Waar brengt "verder" of "terug" je na het laatste/eerste scherm?
+function target(d){const p=TT.page,a=artOf(p);
+ if(a){const[k,kop,base,max]=a;const n=p+d,cnt=Math.min(max,(D?.news?.[k]||[]).length);
+  return n>=base&&n<base+cnt?{p:n,label:d>0?'volgend artikel':'vorig artikel'}:{p:kop,label:'koppen'}}
+ if(p>=410&&p<500)return REG.has(p+d)?{p:p+d,label:d>0?'volgend aandeel':'vorig aandeel'}:{p:400,label:'Beurs'};
  if(!SEQ.includes(p)){const sib=PAGES.filter(x=>Math.floor(x/100)===Math.floor(p/100)&&!SEQ.includes(x)&&!artOf(x)&&!(x>=410&&x<500));const i=sib.indexOf(p);
-  if(i>=0&&sib[i+d])return go(sib[i+d],{dir:d})}
- let i=0;SEQ.forEach((x,k)=>{if(x<=p)i=k});go(SEQ[(i+d+SEQ.length)%SEQ.length],{dir:d});
-}
+  if(i>=0&&sib[i+d])return{p:sib[i+d],label:d>0?'volgende pagina':'vorige pagina'}}
+ let i=0;SEQ.forEach((x,k)=>{if(x<=p)i=k});const t=SEQ[(i+d+SEQ.length)%SEQ.length];return{p:t,label:NAMES[t]}}
+function swipe(d){const n=SCREENS.length;
+ if(d>0&&TT.sc<n-1){TT.sc++;return show(1)}
+ if(d<0&&TT.sc>0){TT.sc--;return show(-1)}
+ const t=target(d);go(t.p,{dir:d})}
 // Blad "Meer": cijferpaneel + overige onderwerpen
 function padShow(){$('#padnum').textContent='Ga naar P '+(TT.buf+'___').slice(0,3).split('').join(' ')}
 function sheet(on){$('#sheet').hidden=!on;$('#tmore').setAttribute('aria-expanded',on);if(on)padShow();else TT.buf=''}
@@ -348,24 +407,28 @@ function key(k){
 document.addEventListener('click',e=>{
  const g=e.target.closest('[data-go]');if(g){sheet(false);return go(+g.dataset.go)}
  const b=e.target.closest('[data-k]');if(b)return key(b.dataset.k);
+ const dt=e.target.closest('#dots [data-sc]');if(dt){const n=+dt.dataset.sc;const dir=n>TT.sc?1:-1;TT.sc=n;return show(dir)}
  const l=e.target.closest('#pg [data-p]');if(l){sheet(false);return go(+l.dataset.p)}
  if(!$('#sheet').hidden&&!e.target.closest('#sheet'))sheet(false);
 });
-addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;const m={ArrowLeft:'prev',ArrowRight:'next',Backspace:'del',Escape:'close'};const k=/^\d$/.test(e.key)?e.key:m[e.key];if(k){e.preventDefault();key(k)}});
+addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;const m={ArrowLeft:'prev',ArrowRight:'next',ArrowUp:'prev',ArrowDown:'next',PageUp:'prev',PageDown:'next',' ':'next',Backspace:'del',Escape:'close'};const k=/^\d$/.test(e.key)?e.key:m[e.key];if(k){e.preventDefault();key(k)}});
 let tx=null,ty=null;
 scr.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
-scr.addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*2)swipe(dx<0?1:-1)},{passive:true});
+scr.addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5)swipe(dx<0?1:-1);else if(Math.abs(dy)>60&&Math.abs(dy)>Math.abs(dx)*1.5)swipe(dy<0?1:-1)},{passive:true});
+// muiswiel op de computer: één scherm per draai
+let wheelT=0;scr.addEventListener('wheel',e=>{e.preventDefault();const t=Date.now();if(t-wheelT<450||Math.abs(e.deltaY)<20)return;wheelT=t;swipe(e.deltaY>0?1:-1)},{passive:false});
 
 /* Lettergrootte zo kiezen dat 40 kolommen x 22 rijen precies passen */
 function fit(){const pg=pgEl;pg.style.fontSize='100px';const probe=document.createElement('span');probe.textContent='0'.repeat(40);probe.style.cssText='position:absolute;visibility:hidden;white-space:pre;font-family:inherit';pg.appendChild(probe);const w=probe.getBoundingClientRect().width;probe.remove();
  const cs=getComputedStyle(scr);const aw=scr.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),ah=scr.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
  const lh=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lh'))||1.3;
- pg.style.fontSize=Math.max(10,Math.min(22,Math.floor(aw/(w/100))))+'px'}  // hele pixels: scherpere letters
-addEventListener('resize',fit);
+ BASEFS=Math.max(10,Math.min(22,Math.floor(aw/(w/100))));pg.style.fontSize=BASEFS+'px'}
+let BASEFS=15;  // hele pixels: scherpere letters
+addEventListener('resize',()=>{fit();draw(TT.sc||0)});
 
-async function load(){const y=scr.scrollTop;try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error(r.status);D=await r.json();LOADERR=false;build()}catch(e){if(!D)LOADERR=true}draw(y)}
-history.replaceState({p:TT.page,y:0},'','#'+TT.page);
-build();draw();fit();if(document.fonts)document.fonts.ready.then(fit);
+async function load(){const y=TT.sc||0;try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error(r.status);D=await r.json();LOADERR=false;build()}catch(e){if(!D)LOADERR=true}draw(y)}
+history.replaceState({p:TT.page,sc:0},'','#'+TT.page);
+build();fit();draw();if(document.fonts)document.fonts.ready.then(()=>{fit();draw(TT.sc||0)});
 load();setInterval(load,5*60*1000);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});setInterval(tick,1000);
